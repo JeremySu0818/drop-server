@@ -31,7 +31,7 @@
         </div>
       </section>
 
-      <article class="glass-card" data-liquid-glass style="max-width: 800px; margin: 0 auto; padding: 40px;">
+      <article class="glass-card" data-liquid-glass style="max-width: 100%; margin: 0 auto; padding: 40px;">
         <div class="card-head" style="margin-bottom: 32px;">
           <span class="icon-badge" aria-hidden="true">
             <svg viewBox="0 0 24 24" role="img">
@@ -41,28 +41,28 @@
           </span>
           <div>
             <h2>Server Status</h2>
-            <p>Real-time metrics and storage controls.</p>
+            <p>Real-time metrics and system controls.</p>
           </div>
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px;">
           <div class="drop-zone" style="cursor: default; min-height: auto; padding: 32px 24px;">
-            <span class="drop-title" style="font-size: 3rem;"><!--UPLOAD_COUNT--></span>
-            <span class="drop-meta">Active Uploads</span>
+            <span class="drop-title" style="font-size: 3rem;" id="upload-count"><!--UPLOAD_COUNT--></span>
+            <span class="drop-meta">Active Sessions</span>
           </div>
 
           <div class="drop-zone" style="cursor: default; min-height: auto; padding: 32px 24px;">
-            <span class="drop-title" style="font-size: 2.5rem;"><!--MEMORY_USAGE--></span>
-            <span class="drop-meta">Memory Usage</span>
+            <span class="drop-title" style="font-size: 2.5rem;" id="memory-usage"><!--MEMORY_USAGE--></span>
+            <span class="drop-meta">System Memory</span>
           </div>
         </div>
 
         <form method="post" action="/admin/reset" style="margin: 0; padding: 0;">
-          <button class="primary-action" type="submit" style="background: #ff4a4a; color: #ffffff;" <!--RESET_DISABLED-->>
+          <button class="primary-action" type="submit" id="reset-btn" style="background: #ff4a4a; color: #ffffff;" <!--RESET_DISABLED-->>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            Secure Reset Storage
+            Clear All Data
           </button>
         </form>
       </article>
@@ -75,6 +75,61 @@
       import { createLiquidGlass } from 'https://esm.sh/solid-glass@0.0.3/engines/svg-refraction';
       import { initPageEffects } from './static/js/ui-effects.js';
       initPageEffects(createLiquidGlass);
+
+      function animateValue(id, start, end, duration, formatFn) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        if (start === end) {
+          element.textContent = formatFn ? formatFn(end) : end;
+          return;
+        }
+        const startTime = performance.now();
+        function update(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const easeProgress = progress * (2 - progress);
+          const value = Math.round(start + (end - start) * easeProgress);
+          element.textContent = formatFn ? formatFn(value) : value;
+          if (progress < 1) {
+            requestAnimationFrame(update);
+          }
+        }
+        requestAnimationFrame(update);
+      }
+
+      setInterval(async () => {
+        try {
+          const res = await fetch('/admin/stats');
+          if (!res.ok) return;
+          const data = await res.json();
+
+          const countEl = document.getElementById('upload-count');
+          const currentCount = parseInt(countEl.textContent, 10) || 0;
+          animateValue('upload-count', currentCount, data.uploadCount, 500);
+
+          const memEl = document.getElementById('memory-usage');
+          const currentMemMatch = memEl.textContent.match(/^(\d+)/);
+          const currentMem = currentMemMatch ? parseInt(currentMemMatch[1], 10) : 0;
+
+          const nextMemMatch = data.memoryUsage.match(/^(\d+)(.*)$/);
+          if (nextMemMatch) {
+            const nextMem = parseInt(nextMemMatch[1], 10);
+            const memSuffix = nextMemMatch[2];
+            animateValue('memory-usage', currentMem, nextMem, 500, (val) => val + memSuffix);
+          } else {
+            memEl.textContent = data.memoryUsage;
+          }
+          
+          const btn = document.getElementById('reset-btn');
+          if (data.uploadCount === 0) {
+            btn.setAttribute('disabled', 'true');
+          } else {
+            btn.removeAttribute('disabled');
+          }
+        } catch (err) {
+          console.error('Failed to update stats:', err);
+        }
+      }, 2000);
     </script>
 
   </body>

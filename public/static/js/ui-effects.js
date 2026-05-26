@@ -12,7 +12,7 @@ const BACKGROUNDS = Object.freeze([
 ]);
 
 function getGlassOptions(element) {
-  const isMobile = window.matchMedia('(max-width: 760px)').matches;
+  const isMobile = window.matchMedia('(max-width: 820px)').matches;
   const isTargetPopup =
     element &&
     (element.closest('#change-password-modal') ||
@@ -21,7 +21,7 @@ function getGlassOptions(element) {
       element.closest('#new-chat-modal') ||
       element.closest('#codeModal'));
   return {
-    radius: isMobile ? 32 : 60,
+    radius: isMobile ? 38 : 60,
     bezelWidth: 20,
     glassThickness: 300,
     blur: isTargetPopup ? 3 : 0,
