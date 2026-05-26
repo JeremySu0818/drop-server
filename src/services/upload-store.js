@@ -1,11 +1,24 @@
 import crypto from 'node:crypto';
 
+const DEFAULT_PURGE_BATCH_SIZE = 512;
+
 export function createUploadStore({ ttlMs, now }) {
   const uploads = new Map();
+  let purgeIterator = uploads.entries();
 
-  function purgeExpired() {
+  function purgeExpired(batchSize = DEFAULT_PURGE_BATCH_SIZE) {
     const current = now();
-    for (const [lookupKey, record] of uploads.entries()) {
+    let checked = 0;
+
+    while (checked < batchSize) {
+      const entry = purgeIterator.next();
+      if (entry.done) {
+        purgeIterator = uploads.entries();
+        break;
+      }
+
+      const [lookupKey, record] = entry.value;
+      checked += 1;
       if (record.expiresAt <= current) {
         uploads.delete(lookupKey);
       }
@@ -15,7 +28,14 @@ export function createUploadStore({ ttlMs, now }) {
   function clearUploads() {
     const cleared = uploads.size;
     uploads.clear();
+    purgeIterator = uploads.entries();
     return cleared;
+  }
+
+  function appendFiles(target, files) {
+    for (let i = 0; i < files.length; i += 1) {
+      target.push(files[i]);
+    }
   }
 
   function upsertUpload(parsed) {
@@ -26,7 +46,7 @@ export function createUploadStore({ ttlMs, now }) {
       if (existing.expiresAt <= createdAt) {
         uploads.delete(parsed.key);
       } else {
-        existing.files.push(...parsed.files);
+        appendFiles(existing.files, parsed.files);
         return {
           status: 200,
           payload: {
@@ -41,7 +61,7 @@ export function createUploadStore({ ttlMs, now }) {
     const expiresAt = createdAt + ttlMs;
     uploads.set(parsed.key, {
       id: crypto.randomUUID(),
-      files: [...parsed.files],
+      files: parsed.files,
       createdAt,
       expiresAt,
     });

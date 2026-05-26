@@ -1,11 +1,17 @@
 export function readJsonBody(req) {
   return new Promise((resolve, reject) => {
-    let raw = '';
+    const chunks = [];
     req.setEncoding('utf8');
     req.on('data', (chunk) => {
-      raw += chunk;
+      chunks.push(chunk);
     });
     req.on('end', () => {
+      if (chunks.length === 0) {
+        resolve({});
+        return;
+      }
+
+      const raw = chunks.length === 1 ? chunks[0] : chunks.join('');
       if (!raw) {
         resolve({});
         return;
