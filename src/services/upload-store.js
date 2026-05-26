@@ -2,6 +2,40 @@ import crypto from 'node:crypto';
 
 const DEFAULT_PURGE_BATCH_SIZE = 512;
 
+function compactFile(file) {
+  return {
+    fileIv: Buffer.from(file.fileIv, 'base64'),
+    fileCiphertext: Buffer.from(file.fileCiphertext, 'base64'),
+    metaIv: Buffer.from(file.metaIv, 'base64'),
+    metaCiphertext: Buffer.from(file.metaCiphertext, 'base64'),
+  };
+}
+
+function expandFile(file) {
+  return {
+    fileIv: file.fileIv.toString('base64'),
+    fileCiphertext: file.fileCiphertext.toString('base64'),
+    metaIv: file.metaIv.toString('base64'),
+    metaCiphertext: file.metaCiphertext.toString('base64'),
+  };
+}
+
+function compactFiles(files) {
+  const compacted = new Array(files.length);
+  for (let i = 0; i < files.length; i += 1) {
+    compacted[i] = compactFile(files[i]);
+  }
+  return compacted;
+}
+
+function expandFiles(files) {
+  const expanded = new Array(files.length);
+  for (let i = 0; i < files.length; i += 1) {
+    expanded[i] = expandFile(files[i]);
+  }
+  return expanded;
+}
+
 export function createUploadStore({ ttlMs, now }) {
   const uploads = new Map();
   let purgeIterator = uploads.entries();
@@ -34,7 +68,7 @@ export function createUploadStore({ ttlMs, now }) {
 
   function appendFiles(target, files) {
     for (let i = 0; i < files.length; i += 1) {
-      target.push(files[i]);
+      target.push(compactFile(files[i]));
     }
   }
 
@@ -61,7 +95,7 @@ export function createUploadStore({ ttlMs, now }) {
     const expiresAt = createdAt + ttlMs;
     uploads.set(parsed.key, {
       id: crypto.randomUUID(),
-      files: parsed.files,
+      files: compactFiles(parsed.files),
       createdAt,
       expiresAt,
     });
@@ -89,7 +123,7 @@ export function createUploadStore({ ttlMs, now }) {
       return { status: 410, payload: { error: 'Image has expired.' } };
     }
 
-    return { status: 200, payload: { files: record.files } };
+    return { status: 200, payload: { files: expandFiles(record.files) } };
   }
 
   function size() {
