@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "check": "node --check server.js"
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "tsc -p tsconfig.json",
+    "build:client": "esbuild src/client/admin.tsx --bundle --format=esm --target=es2020 --outfile=public/static/js/admin.js",
+    "start": "npm run build && node dist/server.js",
+    "dev": "npm run build:client && tsx watch server.ts",
+    "check": "tsc --noEmit -p tsconfig.json"
   },
   "engines": {
     "node": ">=20"
@@ -14,6 +17,18 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "helmet": "^7.1.0"
+    "helmet": "^7.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^22.18.0",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.27.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
   }
 }

@@ -1,6 +1,14 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 
-export function createAdminRoutes(adminController) {
+type AdminController = {
+  page: RequestHandler;
+  reset: RequestHandler;
+  stats: RequestHandler;
+  legacyAdminRedirect: RequestHandler;
+  legacyResetRedirect: RequestHandler;
+};
+
+export function createAdminRoutes(adminController: AdminController) {
   const router = Router();
 
   router.get('/admin', adminController.page);

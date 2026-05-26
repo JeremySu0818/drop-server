@@ -1,8 +1,49 @@
 import crypto from 'node:crypto';
 
+import type { EncryptedFilePayload, ValidatedEncryptedPayload } from '../types.js';
+
 const DEFAULT_PURGE_BATCH_SIZE = 512;
 
-function compactFile(file) {
+type StoredFilePayload = {
+  fileIv: Buffer;
+  fileCiphertext: Buffer;
+  metaIv: Buffer;
+  metaCiphertext: Buffer;
+};
+
+type UploadRecord = {
+  id: string;
+  files: StoredFilePayload[];
+  createdAt: number;
+  expiresAt: number;
+};
+
+type UploadStoreMap = Map<string, UploadRecord>;
+
+type UploadStoreDependencies = {
+  ttlMs: number;
+  now: () => number;
+};
+
+type UploadInsertPayload = {
+  ok: true;
+  expiresAt: number;
+  files: number;
+};
+
+type UploadErrorPayload = {
+  error: string;
+};
+
+export type UploadStore = {
+  clearUploads: () => number;
+  purgeExpired: (batchSize?: number) => void;
+  size: () => number;
+  takeDownload: (lookupKey: string) => { status: number; payload: UploadErrorPayload | { files: EncryptedFilePayload[] } };
+  upsertUpload: (parsed: ValidatedEncryptedPayload) => { status: number; payload: UploadInsertPayload };
+};
+
+function compactFile(file: EncryptedFilePayload): StoredFilePayload {
   return {
     fileIv: Buffer.from(file.fileIv, 'base64'),
     fileCiphertext: Buffer.from(file.fileCiphertext, 'base64'),
@@ -11,7 +52,7 @@ function compactFile(file) {
   };
 }
 
-function expandFile(file) {
+function expandFile(file: StoredFilePayload): EncryptedFilePayload {
   return {
     fileIv: file.fileIv.toString('base64'),
     fileCiphertext: file.fileCiphertext.toString('base64'),
@@ -20,27 +61,27 @@ function expandFile(file) {
   };
 }
 
-function compactFiles(files) {
-  const compacted = new Array(files.length);
+function compactFiles(files: EncryptedFilePayload[]): StoredFilePayload[] {
+  const compacted = new Array<StoredFilePayload>(files.length);
   for (let i = 0; i < files.length; i += 1) {
     compacted[i] = compactFile(files[i]);
   }
   return compacted;
 }
 
-function expandFiles(files) {
-  const expanded = new Array(files.length);
+function expandFiles(files: StoredFilePayload[]): EncryptedFilePayload[] {
+  const expanded = new Array<EncryptedFilePayload>(files.length);
   for (let i = 0; i < files.length; i += 1) {
     expanded[i] = expandFile(files[i]);
   }
   return expanded;
 }
 
-export function createUploadStore({ ttlMs, now }) {
-  const uploads = new Map();
+export function createUploadStore({ ttlMs, now }: UploadStoreDependencies): UploadStore {
+  const uploads: UploadStoreMap = new Map();
   let purgeIterator = uploads.entries();
 
-  function purgeExpired(batchSize = DEFAULT_PURGE_BATCH_SIZE) {
+  function purgeExpired(batchSize = DEFAULT_PURGE_BATCH_SIZE): void {
     const current = now();
     let checked = 0;
 
@@ -59,20 +100,23 @@ export function createUploadStore({ ttlMs, now }) {
     }
   }
 
-  function clearUploads() {
+  function clearUploads(): number {
     const cleared = uploads.size;
     uploads.clear();
     purgeIterator = uploads.entries();
     return cleared;
   }
 
-  function appendFiles(target, files) {
+  function appendFiles(target: StoredFilePayload[], files: EncryptedFilePayload[]): void {
     for (let i = 0; i < files.length; i += 1) {
       target.push(compactFile(files[i]));
     }
   }
 
-  function upsertUpload(parsed) {
+  function upsertUpload(parsed: ValidatedEncryptedPayload): {
+    status: number;
+    payload: UploadInsertPayload;
+  } {
     const createdAt = now();
     const existing = uploads.get(parsed.key);
 
@@ -106,7 +150,9 @@ export function createUploadStore({ ttlMs, now }) {
     };
   }
 
-  function takeDownload(lookupKey) {
+  function takeDownload(
+    lookupKey: string,
+  ): { status: number; payload: UploadErrorPayload | { files: EncryptedFilePayload[] } } {
     const record = uploads.get(lookupKey);
     if (!record) {
       return {
@@ -126,7 +172,7 @@ export function createUploadStore({ ttlMs, now }) {
     return { status: 200, payload: { files: expandFiles(record.files) } };
   }
 
-  function size() {
+  function size(): number {
     return uploads.size;
   }
 

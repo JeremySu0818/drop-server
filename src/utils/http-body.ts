@@ -1,8 +1,10 @@
-export function readJsonBody(req) {
+import type { Request } from 'express';
+
+export function readJsonBody(req: Request): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
-    const chunks = [];
+    const chunks: string[] = [];
     req.setEncoding('utf8');
-    req.on('data', (chunk) => {
+    req.on('data', (chunk: string) => {
       chunks.push(chunk);
     });
     req.on('end', () => {
@@ -17,7 +19,12 @@ export function readJsonBody(req) {
         return;
       }
       try {
-        resolve(JSON.parse(raw));
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          resolve(parsed as Record<string, unknown>);
+          return;
+        }
+        resolve({});
       } catch {
         reject(new Error('INVALID_JSON'));
       }
