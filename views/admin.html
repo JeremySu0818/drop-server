@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>PicDrop Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="preconnect" href="https://esm.sh" />
+    <link rel="stylesheet" href="https://esm.sh/solid-glass@0.0.3/css" />
+    <link rel="stylesheet" href="./static/css/style.css" />
+    <style>
+      .primary-action:disabled {
+        cursor: not-allowed !important;
+      }
+    </style>
+  </head>
+  <body>
+    
+    
+    <main class="app-shell">
+      <section class="brand-strip" aria-label="PicDrop">
+        <div>
+          <p class="eyebrow">PicDrop Admin</p>
+          <h1>System Dashboard</h1>
+        </div>
+      </section>
+
+      <article class="glass-card" data-liquid-glass style="max-width: 800px; margin: 0 auto; padding: 40px;">
+        <div class="card-head" style="margin-bottom: 32px;">
+          <span class="icon-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7z"></path>
+              <path d="M4 10h16M4 14h16"></path>
+            </svg>
+          </span>
+          <div>
+            <h2>Server Status</h2>
+            <p>Real-time metrics and storage controls.</p>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px;">
+          <div class="drop-zone" style="cursor: default; min-height: auto; padding: 32px 24px;">
+            <span class="drop-title" style="font-size: 3rem;"><!--UPLOAD_COUNT--></span>
+            <span class="drop-meta">Active Uploads</span>
+          </div>
+
+          <div class="drop-zone" style="cursor: default; min-height: auto; padding: 32px 24px;">
+            <span class="drop-title" style="font-size: 2.5rem;"><!--MEMORY_USAGE--></span>
+            <span class="drop-meta">Memory Usage</span>
+          </div>
+        </div>
+
+        <form method="post" action="/admin/reset" style="margin: 0; padding: 0;">
+          <button class="primary-action" type="submit" style="background: #ff4a4a; color: #ffffff;" <!--RESET_DISABLED-->>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Secure Reset Storage
+          </button>
+        </form>
+      </article>
+    </main>
+
+
+
+    
+    <script type="module">
+      import { createLiquidGlass } from 'https://esm.sh/solid-glass@0.0.3/engines/svg-refraction';
+      import { initPageEffects } from './static/js/ui-effects.js';
+      initPageEffects(createLiquidGlass);
+    </script>
+
+  </body>
+</html>
