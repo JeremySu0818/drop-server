@@ -1,5 +1,5 @@
 {
-  "name": "picdrop-server",
+  "name": "drop-server",
   "version": "1.0.0",
   "private": true,
   "type": "module",

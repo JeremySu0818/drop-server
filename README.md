@@ -1,5 +1,5 @@
 ---
-title: PicDrop Server
+title: Drop Server
 emoji: 📦
 colorFrom: blue
 colorTo: indigo

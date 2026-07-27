@@ -9,9 +9,9 @@ export type AdminAppProps = {
 export function AdminApp({ uploadCount, memoryUsage, resetDisabled }: AdminAppProps) {
   return (
     <main className="app-shell">
-      <section className="brand-strip" aria-label="PicDrop">
+      <section className="brand-strip" aria-label="Drop">
         <div>
-          <p className="eyebrow">PicDrop Admin</p>
+          <p className="eyebrow">Drop Admin</p>
           <h1>System Dashboard</h1>
         </div>
       </section>

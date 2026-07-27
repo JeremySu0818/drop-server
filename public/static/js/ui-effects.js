@@ -1,14 +1,14 @@
 const BACKGROUNDS = Object.freeze([
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/1.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/2.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/3.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/4.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/5.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/6.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/7.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/8.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/9.jpg',
-  'https://cdn.jsdelivr.net/gh/JeremySu0818/picdrop-server-static@main/10.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/1.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/2.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/3.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/4.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/5.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/6.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/7.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/8.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/9.jpg',
+  'https://cdn.jsdelivr.net/gh/JeremySu0818/drop-server-static@main/10.jpg',
 ]);
 
 function getGlassOptions(element) {
