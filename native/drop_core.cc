@@ -32,8 +32,8 @@ constexpr double kMaxSafeInteger = 9007199254740991.0;
 constexpr std::size_t kChunkSizeBytes = 64ULL * 1024ULL * 1024ULL;
 constexpr std::size_t kGcmTagBytes = 16;
 constexpr const char *kNotFoundMessage =
-    "Image not found. It may have already been downloaded or expired.";
-constexpr const char *kExpiredMessage = "Image has expired.";
+    "File not found. It may have already been downloaded or expired.";
+constexpr const char *kExpiredMessage = "File has expired.";
 
 void SecureZero(void *pointer, std::size_t size) noexcept {
   if (pointer == nullptr || size == 0) {
@@ -305,9 +305,9 @@ ByteView ReadByteView(napi_env env, napi_value value, const char *name) {
     void *data = nullptr;
     napi_value array_buffer;
     std::size_t byte_offset = 0;
-    CheckNapi(env, napi_get_typedarray_info(
-                       env, value, &array_type, &length, &data, &array_buffer,
-                       &byte_offset));
+    CheckNapi(env,
+              napi_get_typedarray_info(env, value, &array_type, &length, &data,
+                                       &array_buffer, &byte_offset));
     if (array_type != napi_uint8_array &&
         array_type != napi_uint8_clamped_array) {
       const std::string message =
@@ -428,13 +428,11 @@ SecureBytes ReadBase64Property(napi_env env, napi_value object,
   return decoded;
 }
 
-SecureBytes ReadBase64Value(napi_env env, napi_value value,
-                            const char *name) {
+SecureBytes ReadBase64Value(napi_env env, napi_value value, const char *name) {
   const std::string encoded = ReadString(env, value, name);
   SecureBytes decoded;
-  if (!DecodeBase64(
-          reinterpret_cast<const std::uint8_t *>(encoded.data()),
-          encoded.size(), &decoded)) {
+  if (!DecodeBase64(reinterpret_cast<const std::uint8_t *>(encoded.data()),
+                    encoded.size(), &decoded)) {
     const std::string message = std::string(name) + " must be valid base64.";
     ThrowTypeError(env, message.c_str());
   }
@@ -516,9 +514,8 @@ std::vector<ChunkedFile> ReadChunkedFiles(napi_env env, napi_value value) {
     napi_value chunk_count_value;
     CheckNapi(env, napi_get_named_property(env, item, "id", &id_value));
     CheckNapi(env, napi_get_named_property(env, item, "size", &size_value));
-    CheckNapi(env,
-              napi_get_named_property(env, item, "chunkCount",
-                                      &chunk_count_value));
+    CheckNapi(env, napi_get_named_property(env, item, "chunkCount",
+                                           &chunk_count_value));
 
     ChunkedFile file;
     file.id = ReadString(env, id_value, "file id");
@@ -542,8 +539,7 @@ std::vector<ChunkedFile> ReadChunkedFiles(napi_env env, napi_value value) {
 
     file.chunk_count = static_cast<std::uint32_t>(chunk_count);
     file.meta_iv = ReadBase64Property(env, item, "metaIv");
-    file.meta_ciphertext =
-        ReadBase64Property(env, item, "metaCiphertext");
+    file.meta_ciphertext = ReadBase64Property(env, item, "metaCiphertext");
     file.chunks.resize(file.chunk_count);
     files.push_back(std::move(file));
   }
@@ -825,8 +821,8 @@ public:
     napi_value stats;
     CheckNapi(env, napi_create_object(env, &stats));
     SetProperty(env, stats, "uploadCount",
-                MakeNumber(env, static_cast<double>(
-                                    uploads_.size() + chunked_uploads_.size())));
+                MakeNumber(env, static_cast<double>(uploads_.size() +
+                                                    chunked_uploads_.size())));
     SetProperty(env, stats, "fileCount",
                 MakeNumber(env, static_cast<double>(file_count)));
     SetProperty(env, stats, "encryptedBytes",
@@ -888,17 +884,14 @@ public:
     }
     ChunkedFile *file = FindChunkedFile(*session, file_id);
     if (file == nullptr || index >= file->chunk_count) {
-      return MakeResult(env, 400,
-                        MakeErrorPayload(env, "Invalid file chunk."));
+      return MakeResult(env, 400, MakeErrorPayload(env, "Invalid file chunk."));
     }
     EncryptedChunk &chunk = file->chunks[index];
     if (chunk.complete || chunk.receiving) {
       return MakeResult(
-          env, 409,
-          MakeErrorPayload(env, "This chunk was already uploaded."));
+          env, 409, MakeErrorPayload(env, "This chunk was already uploaded."));
     }
-    if (iv.size() != 12 ||
-        content_length != ExpectedChunkBytes(*file, index)) {
+    if (iv.size() != 12 || content_length != ExpectedChunkBytes(*file, index)) {
       return MakeResult(
           env, 400,
           MakeErrorPayload(env, "Encrypted chunk size or IV is invalid."));
@@ -912,9 +905,8 @@ public:
     return MakeResult(env, 200, MakeOkPayload(env));
   }
 
-  void AppendChunkPart(const std::string &upload_id,
-                       const std::string &file_id, std::uint32_t index,
-                       const ByteView &bytes) {
+  void AppendChunkPart(const std::string &upload_id, const std::string &file_id,
+                       std::uint32_t index, const ByteView &bytes) {
     ChunkedSession *session = FindChunkedSession(upload_id);
     ChunkedFile *file =
         session == nullptr ? nullptr : FindChunkedFile(*session, file_id);
@@ -971,8 +963,7 @@ public:
     ReleaseUnusedMemory();
   }
 
-  napi_value CompleteChunkedUpload(napi_env env,
-                                   const std::string &upload_id) {
+  napi_value CompleteChunkedUpload(napi_env env, const std::string &upload_id) {
     ChunkedSession *session = FindChunkedSession(upload_id);
     if (session == nullptr || session->expires_at <= NowMilliseconds()) {
       if (session != nullptr) {
@@ -1003,15 +994,14 @@ public:
     return MakeResult(env, 200, payload);
   }
 
-  napi_value BeginChunkedDownload(napi_env env,
-                                  const std::string &lookup_key) {
+  napi_value BeginChunkedDownload(napi_env env, const std::string &lookup_key) {
     PurgeExpired(NowMilliseconds());
     const auto lookup = chunked_lookup_.find(lookup_key);
     if (lookup == chunked_lookup_.end()) {
       return MakeResult(
           env, 404,
-          MakeErrorPayload(
-              env, "Upload not found, expired, or already claimed."));
+          MakeErrorPayload(env,
+                           "Upload not found, expired, or already claimed."));
     }
     ChunkedSession *session = FindChunkedSession(lookup->second);
     if (session == nullptr || session->pending_delete ||
@@ -1019,8 +1009,8 @@ public:
          session->state != ChunkedSessionState::Downloading)) {
       return MakeResult(
           env, 404,
-          MakeErrorPayload(
-              env, "Upload not found, expired, or already claimed."));
+          MakeErrorPayload(env,
+                           "Upload not found, expired, or already claimed."));
     }
     if (session->state == ChunkedSessionState::Ready) {
       session->state = ChunkedSessionState::Downloading;
@@ -1029,8 +1019,8 @@ public:
     Touch(*session);
 
     napi_value files;
-    CheckNapi(env,
-              napi_create_array_with_length(env, session->files.size(), &files));
+    CheckNapi(
+        env, napi_create_array_with_length(env, session->files.size(), &files));
     for (std::size_t index = 0; index < session->files.size(); ++index) {
       const ChunkedFile &file = session->files[index];
       napi_value item;
@@ -1056,9 +1046,11 @@ public:
     return MakeResult(env, 200, payload);
   }
 
-  napi_value AcquireChunkedDownloadChunk(
-      napi_env env, const std::string &download_id, const std::string &token,
-      const std::string &file_id, std::uint32_t index) {
+  napi_value AcquireChunkedDownloadChunk(napi_env env,
+                                         const std::string &download_id,
+                                         const std::string &token,
+                                         const std::string &file_id,
+                                         std::uint32_t index) {
     ChunkedSession *session = FindChunkedSession(download_id);
     if (session == nullptr || session->expires_at <= NowMilliseconds() ||
         session->pending_delete ||
@@ -1076,11 +1068,10 @@ public:
     }
     EncryptedChunk &chunk = file->chunks[index];
     napi_value bytes;
-    CheckNapi(env,
-              napi_create_external_buffer(
-                  env, chunk.ciphertext.size(),
-                  reinterpret_cast<char *>(chunk.ciphertext.data()),
-                  NoopExternalBufferFinalizer, nullptr, &bytes));
+    CheckNapi(env, napi_create_external_buffer(
+                       env, chunk.ciphertext.size(),
+                       reinterpret_cast<char *>(chunk.ciphertext.data()),
+                       NoopExternalBufferFinalizer, nullptr, &bytes));
     session->active_leases += 1;
     Touch(*session);
 
@@ -1111,8 +1102,7 @@ public:
     }
   }
 
-  napi_value FinishChunkedDownload(napi_env env,
-                                   const std::string &download_id,
+  napi_value FinishChunkedDownload(napi_env env, const std::string &download_id,
                                    const std::string &token) {
     auto iterator = chunked_uploads_.find(download_id);
     if (iterator == chunked_uploads_.end() ||
@@ -1258,15 +1248,13 @@ napi_value TakeCallback(napi_env env, napi_callback_info info) {
   });
 }
 
-napi_value CreateChunkedUploadCallback(napi_env env,
-                                       napi_callback_info info) {
+napi_value CreateChunkedUploadCallback(napi_env env, napi_callback_info info) {
   return RunCallback(env, [&]() -> napi_value {
     std::size_t argc = 2;
     napi_value arguments[2];
     UploadStore *store = GetStore(env, info, &argc, arguments);
     if (argc < 2) {
-      ThrowTypeError(env,
-                     "createChunkedUpload requires lookupKey and files.");
+      ThrowTypeError(env, "createChunkedUpload requires lookupKey and files.");
     }
     return store->CreateChunkedUpload(
         env, ReadString(env, arguments[0], "lookupKey"),
@@ -1291,12 +1279,11 @@ napi_value BeginChunkCallback(napi_env env, napi_callback_info info) {
         content_length > std::numeric_limits<std::size_t>::max()) {
       ThrowTypeError(env, "Chunk index or size is too large.");
     }
-    return store->BeginChunk(
-        env, ReadString(env, arguments[0], "uploadId"),
-        ReadString(env, arguments[1], "fileId"),
-        static_cast<std::uint32_t>(index),
-        ReadBase64Value(env, arguments[3], "iv"),
-        static_cast<std::size_t>(content_length));
+    return store->BeginChunk(env, ReadString(env, arguments[0], "uploadId"),
+                             ReadString(env, arguments[1], "fileId"),
+                             static_cast<std::uint32_t>(index),
+                             ReadBase64Value(env, arguments[3], "iv"),
+                             static_cast<std::size_t>(content_length));
   });
 }
 
@@ -1313,11 +1300,10 @@ napi_value AppendChunkPartCallback(napi_env env, napi_callback_info info) {
     if (index > std::numeric_limits<std::uint32_t>::max()) {
       ThrowTypeError(env, "Chunk index is too large.");
     }
-    store->AppendChunkPart(
-        ReadString(env, arguments[0], "uploadId"),
-        ReadString(env, arguments[1], "fileId"),
-        static_cast<std::uint32_t>(index),
-        ReadByteView(env, arguments[3], "bytes"));
+    store->AppendChunkPart(ReadString(env, arguments[0], "uploadId"),
+                           ReadString(env, arguments[1], "fileId"),
+                           static_cast<std::uint32_t>(index),
+                           ReadByteView(env, arguments[3], "bytes"));
     return MakeUndefined(env);
   });
 }
@@ -1334,10 +1320,9 @@ napi_value FinishChunkCallback(napi_env env, napi_callback_info info) {
     if (index > std::numeric_limits<std::uint32_t>::max()) {
       ThrowTypeError(env, "Chunk index is too large.");
     }
-    return store->FinishChunk(
-        env, ReadString(env, arguments[0], "uploadId"),
-        ReadString(env, arguments[1], "fileId"),
-        static_cast<std::uint32_t>(index));
+    return store->FinishChunk(env, ReadString(env, arguments[0], "uploadId"),
+                              ReadString(env, arguments[1], "fileId"),
+                              static_cast<std::uint32_t>(index));
   });
 }
 
@@ -1351,10 +1336,9 @@ napi_value FailChunkCallback(napi_env env, napi_callback_info info) {
     }
     const auto index = ReadNonNegativeInteger(env, arguments[2], "index");
     if (index <= std::numeric_limits<std::uint32_t>::max()) {
-      store->FailChunk(
-          ReadString(env, arguments[0], "uploadId"),
-          ReadString(env, arguments[1], "fileId"),
-          static_cast<std::uint32_t>(index));
+      store->FailChunk(ReadString(env, arguments[0], "uploadId"),
+                       ReadString(env, arguments[1], "fileId"),
+                       static_cast<std::uint32_t>(index));
     }
     return MakeUndefined(env);
   });
@@ -1374,8 +1358,7 @@ napi_value CompleteChunkedUploadCallback(napi_env env,
   });
 }
 
-napi_value BeginChunkedDownloadCallback(napi_env env,
-                                        napi_callback_info info) {
+napi_value BeginChunkedDownloadCallback(napi_env env, napi_callback_info info) {
   return RunCallback(env, [&]() -> napi_value {
     std::size_t argc = 1;
     napi_value arguments[1];
@@ -1395,9 +1378,8 @@ napi_value AcquireChunkedDownloadChunkCallback(napi_env env,
     napi_value arguments[4];
     UploadStore *store = GetStore(env, info, &argc, arguments);
     if (argc < 4) {
-      ThrowTypeError(
-          env,
-          "acquireChunkedDownloadChunk requires downloadId, token, fileId and index.");
+      ThrowTypeError(env, "acquireChunkedDownloadChunk requires downloadId, "
+                          "token, fileId and index.");
     }
     const auto index = ReadNonNegativeInteger(env, arguments[3], "index");
     if (index > std::numeric_limits<std::uint32_t>::max()) {
@@ -1418,8 +1400,8 @@ napi_value ReleaseChunkedDownloadChunkCallback(napi_env env,
     napi_value arguments[2];
     UploadStore *store = GetStore(env, info, &argc, arguments);
     if (argc < 2) {
-      ThrowTypeError(env,
-                     "releaseChunkedDownloadChunk requires downloadId and token.");
+      ThrowTypeError(
+          env, "releaseChunkedDownloadChunk requires downloadId and token.");
     }
     store->ReleaseChunkedDownloadChunk(
         ReadString(env, arguments[0], "downloadId"),
@@ -1444,8 +1426,7 @@ napi_value FinishChunkedDownloadCallback(napi_env env,
   });
 }
 
-napi_value AbortChunkedUploadCallback(napi_env env,
-                                      napi_callback_info info) {
+napi_value AbortChunkedUploadCallback(napi_env env, napi_callback_info info) {
   return RunCallback(env, [&]() -> napi_value {
     std::size_t argc = 1;
     napi_value arguments[1];
@@ -1453,8 +1434,8 @@ napi_value AbortChunkedUploadCallback(napi_env env,
     if (argc < 1) {
       ThrowTypeError(env, "abortChunkedUpload requires uploadId.");
     }
-    return store->AbortChunkedUpload(
-        env, ReadString(env, arguments[0], "uploadId"));
+    return store->AbortChunkedUpload(env,
+                                     ReadString(env, arguments[0], "uploadId"));
   });
 }
 
@@ -1499,8 +1480,8 @@ napi_value CreateUploadStore(napi_env env, napi_callback_info info) {
 
     const std::uint64_t ttl_ms =
         ReadPositiveInteger(env, arguments[0], "ttlMs");
-    if (ttl_ms > static_cast<std::uint64_t>(
-                     std::numeric_limits<std::int64_t>::max())) {
+    if (ttl_ms >
+        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
       ThrowTypeError(env, "Native store configuration is too large.");
     }
 
