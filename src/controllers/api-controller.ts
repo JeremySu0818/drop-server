@@ -1,31 +1,48 @@
 import type { Request, Response } from 'express';
 
 import type { UploadStore } from '../services/upload-store.js';
-import { readJsonBody } from '../utils/http-body.js';
+import {
+  INVALID_JSON,
+  PAYLOAD_TOO_LARGE,
+  readJsonBody,
+} from '../utils/http-body.js';
 import { readLookupKey, requireEncryptedPayload } from '../utils/validators.js';
 
 type ApiControllerDependencies = {
   uploadStore: UploadStore;
   ttlMs: number;
+  maxJsonBytes: number;
 };
 
-async function readJsonOrRespondBadRequest(req: Request, res: Response) {
+async function readJsonOrRespondBadRequest(
+  req: Request,
+  res: Response,
+  maxJsonBytes: number,
+) {
   try {
-    return await readJsonBody(req);
+    return await readJsonBody(req, maxJsonBytes);
   } catch (error) {
-    if (error instanceof Error && error.message === 'INVALID_JSON') {
+    if (error instanceof Error && error.message === INVALID_JSON) {
       res.status(400).json({ error: 'Invalid JSON body.' });
+      return null;
+    }
+    if (error instanceof Error && error.message === PAYLOAD_TOO_LARGE) {
+      res.status(413).json({ error: 'JSON body exceeds the configured limit.' });
       return null;
     }
     throw error;
   }
 }
 
-export function createApiController({ uploadStore, ttlMs }: ApiControllerDependencies) {
+export function createApiController({
+  uploadStore,
+  ttlMs,
+  maxJsonBytes,
+}: ApiControllerDependencies) {
   async function uploads(req: Request, res: Response) {
     uploadStore.purgeExpired();
 
-    const body = await readJsonOrRespondBadRequest(req, res);
+    const body = await readJsonOrRespondBadRequest(req, res, maxJsonBytes);
     if (!body) {
       return;
     }
@@ -43,7 +60,7 @@ export function createApiController({ uploadStore, ttlMs }: ApiControllerDepende
   async function download(req: Request, res: Response) {
     uploadStore.purgeExpired();
 
-    const body = await readJsonOrRespondBadRequest(req, res);
+    const body = await readJsonOrRespondBadRequest(req, res, maxJsonBytes);
     if (!body) {
       return;
     }
@@ -60,16 +77,16 @@ export function createApiController({ uploadStore, ttlMs }: ApiControllerDepende
 
   return {
     health(_req: Request, res: Response) {
-      uploadStore.purgeExpired();
+      const stats = uploadStore.getStats();
       res.json({
         ok: true,
         ttlMinutes: Math.round(ttlMs / 60000),
-        stored: uploadStore.size(),
+        stored: stats.uploadCount,
       });
     },
     reset(_req: Request, res: Response) {
       const cleared = uploadStore.clearUploads();
-      res.json({ ok: true, cleared, stored: uploadStore.size() });
+      res.json({ ok: true, cleared, stored: 0 });
     },
     uploads,
     download,

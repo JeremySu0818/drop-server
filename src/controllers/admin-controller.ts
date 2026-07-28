@@ -18,8 +18,7 @@ function getMemoryUsageLabel(): string {
 
 export function createAdminController({ uploadStore }: AdminControllerDependencies) {
   const page: RequestHandler = (_req, res) => {
-    uploadStore.purgeExpired();
-    const uploadCount = uploadStore.size();
+    const uploadCount = uploadStore.getStats().uploadCount;
     res.type('html').send(
       renderAdminPage({
         uploadCount,
@@ -44,7 +43,7 @@ export function createAdminController({ uploadStore }: AdminControllerDependenci
 
   const stats: RequestHandler = (_req, res) => {
     res.json({
-      uploadCount: uploadStore.size(),
+      uploadCount: uploadStore.getStats().uploadCount,
       memoryUsage: getMemoryUsageLabel(),
     });
   };

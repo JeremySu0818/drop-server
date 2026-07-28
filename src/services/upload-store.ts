@@ -1,29 +1,8 @@
-import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { EncryptedFilePayload, ValidatedEncryptedPayload } from '../types.js';
-
-const DEFAULT_PURGE_BATCH_SIZE = 512;
-
-type StoredFilePayload = {
-  fileIv: Buffer;
-  fileCiphertext: Buffer;
-  metaIv: Buffer;
-  metaCiphertext: Buffer;
-};
-
-type UploadRecord = {
-  id: string;
-  files: StoredFilePayload[];
-  createdAt: number;
-  expiresAt: number;
-};
-
-type UploadStoreMap = Map<string, UploadRecord>;
-
-type UploadStoreDependencies = {
-  ttlMs: number;
-  now: () => number;
-};
 
 type UploadInsertPayload = {
   ok: true;
@@ -35,152 +14,102 @@ type UploadErrorPayload = {
   error: string;
 };
 
-export type UploadStore = {
-  clearUploads: () => number;
-  purgeExpired: (batchSize?: number) => void;
-  size: () => number;
-  takeDownload: (lookupKey: string) => { status: number; payload: UploadErrorPayload | { files: EncryptedFilePayload[] } };
-  upsertUpload: (parsed: ValidatedEncryptedPayload) => { status: number; payload: UploadInsertPayload };
+export type UploadStoreStats = {
+  uploadCount: number;
+  fileCount: number;
+  encryptedBytes: number;
+  capacityBytes: number;
 };
 
-function compactFile(file: EncryptedFilePayload): StoredFilePayload {
-  return {
-    fileIv: Buffer.from(file.fileIv, 'base64'),
-    fileCiphertext: Buffer.from(file.fileCiphertext, 'base64'),
-    metaIv: Buffer.from(file.metaIv, 'base64'),
-    metaCiphertext: Buffer.from(file.metaCiphertext, 'base64'),
-  };
-}
+type NativeResult<T> = {
+  status: number;
+  payload: T;
+};
 
-function expandFile(file: StoredFilePayload): EncryptedFilePayload {
-  return {
-    fileIv: file.fileIv.toString('base64'),
-    fileCiphertext: file.fileCiphertext.toString('base64'),
-    metaIv: file.metaIv.toString('base64'),
-    metaCiphertext: file.metaCiphertext.toString('base64'),
-  };
-}
-
-function compactFiles(files: EncryptedFilePayload[]): StoredFilePayload[] {
-  const compacted = new Array<StoredFilePayload>(files.length);
-  for (let i = 0; i < files.length; i += 1) {
-    compacted[i] = compactFile(files[i]);
-  }
-  return compacted;
-}
-
-function expandFiles(files: StoredFilePayload[]): EncryptedFilePayload[] {
-  const expanded = new Array<EncryptedFilePayload>(files.length);
-  for (let i = 0; i < files.length; i += 1) {
-    expanded[i] = expandFile(files[i]);
-  }
-  return expanded;
-}
-
-export function createUploadStore({ ttlMs, now }: UploadStoreDependencies): UploadStore {
-  const uploads: UploadStoreMap = new Map();
-  let purgeIterator = uploads.entries();
-
-  function purgeExpired(batchSize = DEFAULT_PURGE_BATCH_SIZE): void {
-    const current = now();
-    let checked = 0;
-
-    while (checked < batchSize) {
-      const entry = purgeIterator.next();
-      if (entry.done) {
-        purgeIterator = uploads.entries();
-        break;
-      }
-
-      const [lookupKey, record] = entry.value;
-      checked += 1;
-      if (record.expiresAt <= current) {
-        uploads.delete(lookupKey);
-      }
-    }
-  }
-
-  function clearUploads(): number {
-    const cleared = uploads.size;
-    uploads.clear();
-    purgeIterator = uploads.entries();
-    return cleared;
-  }
-
-  function appendFiles(target: StoredFilePayload[], files: EncryptedFilePayload[]): void {
-    for (let i = 0; i < files.length; i += 1) {
-      target.push(compactFile(files[i]));
-    }
-  }
-
-  function upsertUpload(parsed: ValidatedEncryptedPayload): {
-    status: number;
-    payload: UploadInsertPayload;
-  } {
-    const createdAt = now();
-    const existing = uploads.get(parsed.key);
-
-    if (existing) {
-      if (existing.expiresAt <= createdAt) {
-        uploads.delete(parsed.key);
-      } else {
-        appendFiles(existing.files, parsed.files);
-        return {
-          status: 200,
-          payload: {
-            ok: true,
-            expiresAt: existing.expiresAt,
-            files: existing.files.length,
-          },
-        };
-      }
-    }
-
-    const expiresAt = createdAt + ttlMs;
-    uploads.set(parsed.key, {
-      id: crypto.randomUUID(),
-      files: compactFiles(parsed.files),
-      createdAt,
-      expiresAt,
-    });
-
-    return {
-      status: 201,
-      payload: { ok: true, expiresAt, files: parsed.files.length },
-    };
-  }
-
-  function takeDownload(
+type NativeUploadStore = {
+  clearUploads: () => number;
+  getStats: () => UploadStoreStats;
+  purgeExpired: () => number;
+  takeDownload: (
     lookupKey: string,
-  ): { status: number; payload: UploadErrorPayload | { files: EncryptedFilePayload[] } } {
-    const record = uploads.get(lookupKey);
-    if (!record) {
-      return {
-        status: 404,
-        payload: {
-          error: 'Image not found. It may have already been downloaded or expired.',
-        },
-      };
-    }
+  ) => NativeResult<UploadErrorPayload | { files: EncryptedFilePayload[] }>;
+  upsertUpload: (
+    lookupKey: string,
+    files: EncryptedFilePayload[],
+  ) => NativeResult<UploadErrorPayload | UploadInsertPayload>;
+};
 
-    uploads.delete(lookupKey);
+type NativeAddon = {
+  createUploadStore: (ttlMs: number, capacityBytes: number) => NativeUploadStore;
+};
 
-    if (record.expiresAt <= now()) {
-      return { status: 410, payload: { error: 'Image has expired.' } };
-    }
+type UploadStoreDependencies = {
+  ttlMs: number;
+  maxStoreBytes: number;
+};
 
-    return { status: 200, payload: { files: expandFiles(record.files) } };
+export type UploadStore = {
+  clearUploads: () => number;
+  getStats: () => UploadStoreStats;
+  purgeExpired: () => void;
+  takeDownload: (
+    lookupKey: string,
+  ) => NativeResult<UploadErrorPayload | { files: EncryptedFilePayload[] }>;
+  upsertUpload: (
+    parsed: ValidatedEncryptedPayload,
+  ) => NativeResult<UploadErrorPayload | UploadInsertPayload>;
+};
+
+let cachedAddon: NativeAddon | undefined;
+
+function loadNativeAddon(): NativeAddon {
+  if (cachedAddon) {
+    return cachedAddon;
   }
 
-  function size(): number {
-    return uploads.size;
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    process.env.DROP_NATIVE_ADDON_PATH,
+    path.resolve(process.cwd(), 'build/Release/drop_core.node'),
+    path.resolve(moduleDir, '../../build/Release/drop_core.node'),
+    path.resolve(moduleDir, '../../../build/Release/drop_core.node'),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  const require = createRequire(import.meta.url);
+  const failures: string[] = [];
+
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      cachedAddon = require(candidate) as NativeAddon;
+      return cachedAddon;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${candidate}: ${message}`);
+    }
   }
+
+  throw new Error(
+    [
+      'Unable to load the Drop native security core.',
+      'Run "npm run build:native" before starting the server.',
+      ...failures,
+    ].join('\n'),
+  );
+}
+
+export function createUploadStore({
+  ttlMs,
+  maxStoreBytes,
+}: UploadStoreDependencies): UploadStore {
+  const nativeStore = loadNativeAddon().createUploadStore(ttlMs, maxStoreBytes);
 
   return {
-    clearUploads,
-    purgeExpired,
-    size,
-    takeDownload,
-    upsertUpload,
+    clearUploads: () => nativeStore.clearUploads(),
+    getStats: () => nativeStore.getStats(),
+    purgeExpired: () => {
+      nativeStore.purgeExpired();
+    },
+    takeDownload: (lookupKey) => nativeStore.takeDownload(lookupKey),
+    upsertUpload: (parsed) =>
+      nativeStore.upsertUpload(parsed.key, parsed.files),
   };
 }

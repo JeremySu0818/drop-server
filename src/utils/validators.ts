@@ -10,11 +10,18 @@ export function isLookupKey(value: unknown): value is string {
 }
 
 export function isBase64(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    value.length > 0 &&
-    /^[A-Za-z0-9+/]+={0,2}$/.test(value)
-  );
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(value)
+  ) {
+    return false;
+  }
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  if (padding > 0 && value.length % 4 !== 0) {
+    return false;
+  }
+  return (value.length - padding) % 4 !== 1;
 }
 
 export function readLookupKey(body: Record<string, unknown>): LookupResult | ValidationError {

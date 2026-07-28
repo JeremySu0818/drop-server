@@ -1,4 +1,7 @@
 node_modules
+build
+dist
+public/static/js/admin.js
 npm-debug.log*
 .git
 .gitignore
