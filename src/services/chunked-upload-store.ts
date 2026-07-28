@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-export const CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
+export const CHUNK_SIZE_BYTES = 64 * 1024 * 1024;
 const GCM_TAG_BYTES = 16;
 
 export type ChunkedFileInit = {
@@ -78,9 +78,7 @@ export class ChunkedUploadStore {
 
   getStats() {
     return {
-      uploadCount: [...this.sessions.values()].filter(
-        (session) => session.state !== 'uploading',
-      ).length,
+      uploadCount: this.sessions.size,
     };
   }
 
@@ -144,6 +142,7 @@ export class ChunkedUploadStore {
       return { status: 400, error: 'Encrypted chunk size is invalid.' };
     }
 
+    this.touchSession(session);
     file.inFlight.add(index);
     return { ok: true };
   }
@@ -164,6 +163,7 @@ export class ChunkedUploadStore {
 
     file.inFlight.delete(index);
     file.chunks.set(index, { iv, size: bytes.byteLength, bytes });
+    this.touchSession(session);
     return { ok: true };
   }
 
@@ -186,6 +186,7 @@ export class ChunkedUploadStore {
       }
     }
     session.state = 'ready';
+    this.touchSession(session);
     return { ok: true, expiresAt: session.expiresAt };
   }
 
@@ -208,6 +209,7 @@ export class ChunkedUploadStore {
       session.state = 'downloading';
       session.downloadToken = makeSecret();
     }
+    this.touchSession(session);
     return {
       downloadId: session.id,
       downloadToken: session.downloadToken!,
@@ -243,6 +245,7 @@ export class ChunkedUploadStore {
     if (!chunk) {
       return { status: 404, error: 'File chunk not found.' };
     }
+    this.touchSession(session);
     return chunk;
   }
 
@@ -300,6 +303,10 @@ export class ChunkedUploadStore {
       }
       file.chunks.clear();
     }
+  }
+
+  private touchSession(session: ChunkedSession) {
+    session.expiresAt = Date.now() + this.ttlMs;
   }
 }
 

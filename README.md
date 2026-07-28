@@ -59,9 +59,11 @@ so the addon is rebuilt.
 | `ALLOWED_ORIGIN` | `*` | One origin or comma-separated CORS origins |
 | `DROP_NATIVE_ADDON_PATH` | auto-detected | Optional absolute path to `drop_core.node` |
 
-Files larger than a browser can safely hold in memory use the chunked API. Each
-8 MiB slice is encrypted independently in the browser and retained only in
-server memory; plaintext filenames and file contents never reach the server.
+Files larger than a browser can safely hold in memory use the chunked API. Up to
+three 64 MiB slices are encrypted and uploaded concurrently, then retained only
+in server memory; plaintext filenames and file contents never reach the server.
+Incomplete uploads expire after 30 minutes of inactivity, and the browser also
+sends a best-effort abort request when its page is closed.
 
 ## Hugging Face Spaces
 

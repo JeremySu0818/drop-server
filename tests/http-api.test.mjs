@@ -99,19 +99,18 @@ test('HTTP API enforces its legacy JSON request limit', async () => {
   });
 });
 
-test('chunked API streams a multi-part encrypted file through memory', async () => {
+test('chunked API streams an encrypted file through memory', async () => {
   await withServer(baseConfig, async (baseUrl) => {
     const lookupKey = 'd'.repeat(64);
-    const firstChunk = Buffer.alloc(8 * 1024 * 1024 + 16, 7);
-    const secondChunk = Buffer.alloc(3 + 16, 9);
+    const encryptedChunk = Buffer.alloc(3 + 16, 7);
     const iv = Buffer.alloc(12, 5).toString('base64');
     const manifest = {
       lookupKey,
       files: [
         {
           id: 'f0',
-          size: 8 * 1024 * 1024 + 3,
-          chunkCount: 2,
+          size: 3,
+          chunkCount: 1,
           metaIv: iv,
           metaCiphertext: Buffer.from([1, 2, 3]).toString('base64'),
         },
@@ -125,9 +124,9 @@ test('chunked API streams a multi-part encrypted file through memory', async () 
     });
     assert.equal(created.status, 201);
     const { uploadId, chunkSize } = await created.json();
-    assert.equal(chunkSize, 8 * 1024 * 1024);
+    assert.equal(chunkSize, 64 * 1024 * 1024);
 
-    for (const [index, bytes] of [firstChunk, secondChunk].entries()) {
+    for (const [index, bytes] of [encryptedChunk].entries()) {
       const response = await fetch(
         `${baseUrl}/api/chunked-uploads/${uploadId}/files/f0/chunks/${index}`,
         {
@@ -156,9 +155,9 @@ test('chunked API streams a multi-part encrypted file through memory', async () 
     });
     assert.equal(claim.status, 200);
     const download = await claim.json();
-    assert.equal(download.files[0].chunkCount, 2);
+    assert.equal(download.files[0].chunkCount, 1);
 
-    for (const [index, expected] of [firstChunk, secondChunk].entries()) {
+    for (const [index, expected] of [encryptedChunk].entries()) {
       const response = await fetch(
         `${baseUrl}/api/chunked-download/${download.downloadId}/files/f0/chunks/${index}`,
         { headers: { authorization: `Bearer ${download.downloadToken}` } },

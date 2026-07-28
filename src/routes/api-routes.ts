@@ -40,6 +40,10 @@ export function createApiRoutes(
     '/chunked-uploads/:uploadId',
     chunkedApiController.abortUpload,
   );
+  router.post(
+    '/chunked-uploads/:uploadId/abort',
+    chunkedApiController.abortUpload,
+  );
   router.post('/chunked-download', chunkedApiController.beginDownload);
   router.get(
     '/chunked-download/:downloadId/files/:fileId/chunks/:index',

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 
 import {
+  CHUNK_SIZE_BYTES,
   ChunkedUploadStore,
   isStoreError,
   type ChunkedFileInit,
@@ -40,7 +41,7 @@ function parseFiles(value: unknown): ChunkedFileInit[] | null {
     const chunkCount = Number(file.chunkCount);
     const metaIv = file.metaIv;
     const metaCiphertext = file.metaCiphertext;
-    const expectedChunks = Math.max(1, Math.ceil(size / (8 * 1024 * 1024)));
+    const expectedChunks = Math.max(1, Math.ceil(size / CHUNK_SIZE_BYTES));
     if (
       !FILE_ID_PATTERN.test(id) ||
       !Number.isSafeInteger(size) ||
@@ -117,22 +118,21 @@ export function createChunkedApiController({
         return;
       }
 
+      let bytes: Buffer | undefined;
       try {
-        const chunks: Buffer[] = [];
+        bytes = Buffer.allocUnsafe(contentLength);
         let receivedBytes = 0;
         for await (const chunk of req) {
-          const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-          receivedBytes += bytes.byteLength;
-          if (receivedBytes > contentLength) {
+          const incoming = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          if (receivedBytes + incoming.byteLength > contentLength) {
             throw new Error('Chunk exceeded its declared Content-Length.');
           }
-          chunks.push(bytes);
+          incoming.copy(bytes, receivedBytes);
+          receivedBytes += incoming.byteLength;
         }
         if (receivedBytes !== contentLength) {
           throw new Error('Chunk did not match its declared Content-Length.');
         }
-        const bytes =
-          chunks.length === 1 ? chunks[0] : Buffer.concat(chunks, receivedBytes);
         sendResult(
           res,
           store.commitChunk(
@@ -144,6 +144,7 @@ export function createChunkedApiController({
           ),
         );
       } catch (error) {
+        bytes?.fill(0);
         store.failChunk(req.params.uploadId, req.params.fileId, index);
         res.status(400).json({ error: 'Unable to read encrypted chunk.' });
       }
