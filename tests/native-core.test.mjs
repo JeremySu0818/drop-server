@@ -15,7 +15,7 @@ const file = {
 const fileBytes = 12;
 
 test('native core appends, reports stats, and atomically takes an upload', () => {
-  const store = createUploadStore(60_000, 1024);
+  const store = createUploadStore(60_000);
 
   const inserted = store.upsertUpload(key, [file]);
   assert.equal(inserted.status, 201);
@@ -28,7 +28,6 @@ test('native core appends, reports stats, and atomically takes an upload', () =>
     uploadCount: 1,
     fileCount: 2,
     encryptedBytes: fileBytes * 2,
-    capacityBytes: 1024,
   });
 
   const downloaded = store.takeDownload(key);
@@ -38,27 +37,8 @@ test('native core appends, reports stats, and atomically takes an upload', () =>
   assert.equal(store.getStats().encryptedBytes, 0);
 });
 
-test('native core rejects an upload that would exceed its byte capacity', () => {
-  const store = createUploadStore(60_000, fileBytes - 1);
-  const result = store.upsertUpload(key, [file]);
-
-  assert.equal(result.status, 507);
-  assert.equal(result.payload.error, 'Encrypted storage capacity exceeded.');
-  assert.equal(store.getStats().uploadCount, 0);
-});
-
-test('native core rejects an oversized append without changing the record', () => {
-  const store = createUploadStore(60_000, fileBytes);
-  assert.equal(store.upsertUpload(key, [file]).status, 201);
-  assert.equal(store.upsertUpload(key, [file]).status, 507);
-
-  const downloaded = store.takeDownload(key);
-  assert.equal(downloaded.status, 200);
-  assert.deepEqual(downloaded.payload.files, [file]);
-});
-
 test('native core removes and distinguishes an expired upload', async () => {
-  const store = createUploadStore(5, 1024);
+  const store = createUploadStore(5);
   store.upsertUpload(key, [file]);
   await new Promise((resolve) => setTimeout(resolve, 15));
 
@@ -67,7 +47,7 @@ test('native core removes and distinguishes an expired upload', async () => {
 });
 
 test('native core clears all retained uploads and validates base64', () => {
-  const store = createUploadStore(60_000, 1024);
+  const store = createUploadStore(60_000);
   store.upsertUpload(key, [file]);
   store.upsertUpload('b'.repeat(64), [file]);
   assert.equal(store.clearUploads(), 2);

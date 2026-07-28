@@ -2,10 +2,12 @@ import os from 'node:os';
 import type { RequestHandler } from 'express';
 
 import type { UploadStore } from '../services/upload-store.js';
+import type { ChunkedUploadStore } from '../services/chunked-upload-store.js';
 import { renderAdminPage } from '../views/admin-document.js';
 
 type AdminControllerDependencies = {
   uploadStore: UploadStore;
+  chunkedUploadStore: ChunkedUploadStore;
 };
 
 function getMemoryUsageLabel(): string {
@@ -16,9 +18,16 @@ function getMemoryUsageLabel(): string {
   return `${usedMb} MB / ${totalGb} GB`;
 }
 
-export function createAdminController({ uploadStore }: AdminControllerDependencies) {
+export function createAdminController({
+  uploadStore,
+  chunkedUploadStore,
+}: AdminControllerDependencies) {
+  const getUploadCount = () =>
+    uploadStore.getStats().uploadCount +
+    chunkedUploadStore.getStats().uploadCount;
+
   const page: RequestHandler = (_req, res) => {
-    const uploadCount = uploadStore.getStats().uploadCount;
+    const uploadCount = getUploadCount();
     res.type('html').send(
       renderAdminPage({
         uploadCount,
@@ -30,6 +39,7 @@ export function createAdminController({ uploadStore }: AdminControllerDependenci
 
   const reset: RequestHandler = (_req, res) => {
     uploadStore.clearUploads();
+    chunkedUploadStore.clearUploads();
     res.redirect(303, '/admin');
   };
 
@@ -43,7 +53,7 @@ export function createAdminController({ uploadStore }: AdminControllerDependenci
 
   const stats: RequestHandler = (_req, res) => {
     res.json({
-      uploadCount: uploadStore.getStats().uploadCount,
+      uploadCount: getUploadCount(),
       memoryUsage: getMemoryUsageLabel(),
     });
   };

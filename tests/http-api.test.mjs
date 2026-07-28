@@ -31,7 +31,6 @@ const baseConfig = {
   port: 7860,
   ttlMs: 60_000,
   maxJsonBytes: 1024,
-  maxStoreBytes: 1024,
   allowedOrigin: '*',
 };
 
@@ -89,23 +88,100 @@ test('HTTP API stores, reports, and takes encrypted files once', async () => {
   });
 });
 
-test('HTTP API enforces JSON and native store capacity limits', async () => {
-  await withServer(
-    { ...baseConfig, maxStoreBytes: 11 },
-    async (baseUrl) => {
-      const capacityResponse = await fetch(`${baseUrl}/api/uploads`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ lookupKey: key, files: [file] }),
-      });
-      assert.equal(capacityResponse.status, 507);
-
+test('HTTP API enforces its legacy JSON request limit', async () => {
+  await withServer(baseConfig, async (baseUrl) => {
       const oversizedResponse = await fetch(`${baseUrl}/api/uploads`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ padding: 'x'.repeat(2048) }),
       });
       assert.equal(oversizedResponse.status, 413);
-    },
-  );
+  });
+});
+
+test('chunked API streams a multi-part encrypted file through memory', async () => {
+  await withServer(baseConfig, async (baseUrl) => {
+    const lookupKey = 'd'.repeat(64);
+    const firstChunk = Buffer.alloc(8 * 1024 * 1024 + 16, 7);
+    const secondChunk = Buffer.alloc(3 + 16, 9);
+    const iv = Buffer.alloc(12, 5).toString('base64');
+    const manifest = {
+      lookupKey,
+      files: [
+        {
+          id: 'f0',
+          size: 8 * 1024 * 1024 + 3,
+          chunkCount: 2,
+          metaIv: iv,
+          metaCiphertext: Buffer.from([1, 2, 3]).toString('base64'),
+        },
+      ],
+    };
+
+    const created = await fetch(`${baseUrl}/api/chunked-uploads`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(manifest),
+    });
+    assert.equal(created.status, 201);
+    const { uploadId, chunkSize } = await created.json();
+    assert.equal(chunkSize, 8 * 1024 * 1024);
+
+    for (const [index, bytes] of [firstChunk, secondChunk].entries()) {
+      const response = await fetch(
+        `${baseUrl}/api/chunked-uploads/${uploadId}/files/f0/chunks/${index}`,
+        {
+          method: 'PUT',
+          headers: {
+            'content-type': 'application/octet-stream',
+            'x-chunk-iv': iv,
+          },
+          body: bytes,
+        },
+      );
+      assert.equal(response.status, 200);
+    }
+
+    const completed = await fetch(`${baseUrl}/api/chunked-uploads/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ uploadId }),
+    });
+    assert.equal(completed.status, 200);
+
+    const claim = await fetch(`${baseUrl}/api/chunked-download`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lookupKey }),
+    });
+    assert.equal(claim.status, 200);
+    const download = await claim.json();
+    assert.equal(download.files[0].chunkCount, 2);
+
+    for (const [index, expected] of [firstChunk, secondChunk].entries()) {
+      const response = await fetch(
+        `${baseUrl}/api/chunked-download/${download.downloadId}/files/f0/chunks/${index}`,
+        { headers: { authorization: `Bearer ${download.downloadToken}` } },
+      );
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('x-chunk-iv'), iv);
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), expected);
+    }
+
+    const destroyed = await fetch(
+      `${baseUrl}/api/chunked-download/${download.downloadId}`,
+      {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${download.downloadToken}` },
+      },
+    );
+    assert.equal(destroyed.status, 200);
+
+    const retry = await fetch(`${baseUrl}/api/chunked-download`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lookupKey }),
+    });
+    assert.equal(retry.status, 404);
+  });
 });

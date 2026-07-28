@@ -26,7 +26,6 @@ constexpr double kMaxSafeInteger = 9007199254740991.0;
 constexpr const char *kNotFoundMessage =
     "Image not found. It may have already been downloaded or expired.";
 constexpr const char *kExpiredMessage = "Image has expired.";
-constexpr const char *kCapacityMessage = "Encrypted storage capacity exceeded.";
 
 void SecureZero(void *pointer, std::size_t size) noexcept {
   if (pointer == nullptr || size == 0) {
@@ -444,8 +443,7 @@ napi_value MakeFilePayload(napi_env env, const EncryptedFile &file) {
 
 class UploadStore {
 public:
-  UploadStore(std::int64_t ttl_ms, std::size_t capacity_bytes)
-      : ttl_ms_(ttl_ms), capacity_bytes_(capacity_bytes) {}
+  explicit UploadStore(std::int64_t ttl_ms) : ttl_ms_(ttl_ms) {}
 
   std::size_t PurgeExpired(std::int64_t now) {
     std::size_t purged = 0;
@@ -466,10 +464,6 @@ public:
                     std::size_t incoming_bytes) {
     const std::int64_t now = NowMilliseconds();
     PurgeExpired(now);
-
-    if (incoming_bytes > capacity_bytes_ - total_bytes_) {
-      return MakeResult(env, 507, MakeErrorPayload(env, kCapacityMessage));
-    }
 
     auto existing = uploads_.find(key);
     if (existing != uploads_.end()) {
@@ -564,8 +558,6 @@ public:
                 MakeNumber(env, static_cast<double>(file_count_)));
     SetProperty(env, stats, "encryptedBytes",
                 MakeNumber(env, static_cast<double>(total_bytes_)));
-    SetProperty(env, stats, "capacityBytes",
-                MakeNumber(env, static_cast<double>(capacity_bytes_)));
     return stats;
   }
 
@@ -577,7 +569,6 @@ private:
 
   std::unordered_map<std::string, UploadRecord> uploads_;
   std::int64_t ttl_ms_;
-  std::size_t capacity_bytes_;
   std::size_t total_bytes_ = 0;
   std::size_t file_count_ = 0;
 };
@@ -670,29 +661,23 @@ void FinalizeStore(napi_env, void *data, void *) {
 
 napi_value CreateUploadStore(napi_env env, napi_callback_info info) {
   return RunCallback(env, [&]() -> napi_value {
-    std::size_t argc = 2;
-    napi_value arguments[2];
+    std::size_t argc = 1;
+    napi_value arguments[1];
     CheckNapi(env,
               napi_get_cb_info(env, info, &argc, arguments, nullptr, nullptr));
-    if (argc < 2) {
-      ThrowTypeError(env,
-                     "createUploadStore requires ttlMs and capacityBytes.");
+    if (argc < 1) {
+      ThrowTypeError(env, "createUploadStore requires ttlMs.");
     }
 
     const std::uint64_t ttl_ms =
         ReadPositiveInteger(env, arguments[0], "ttlMs");
-    const std::uint64_t capacity_bytes =
-        ReadPositiveInteger(env, arguments[1], "capacityBytes");
     if (ttl_ms > static_cast<std::uint64_t>(
-                     std::numeric_limits<std::int64_t>::max()) ||
-        capacity_bytes > static_cast<std::uint64_t>(
-                             std::numeric_limits<std::size_t>::max())) {
+                     std::numeric_limits<std::int64_t>::max())) {
       ThrowTypeError(env, "Native store configuration is too large.");
     }
 
     auto store =
-        std::make_unique<UploadStore>(static_cast<std::int64_t>(ttl_ms),
-                                      static_cast<std::size_t>(capacity_bytes));
+        std::make_unique<UploadStore>(static_cast<std::int64_t>(ttl_ms));
 
     napi_value object;
     CheckNapi(env, napi_create_object(env, &object));

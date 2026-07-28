@@ -18,7 +18,6 @@ export type UploadStoreStats = {
   uploadCount: number;
   fileCount: number;
   encryptedBytes: number;
-  capacityBytes: number;
 };
 
 type NativeResult<T> = {
@@ -40,12 +39,11 @@ type NativeUploadStore = {
 };
 
 type NativeAddon = {
-  createUploadStore: (ttlMs: number, capacityBytes: number) => NativeUploadStore;
+  createUploadStore: (ttlMs: number) => NativeUploadStore;
 };
 
 type UploadStoreDependencies = {
   ttlMs: number;
-  maxStoreBytes: number;
 };
 
 export type UploadStore = {
@@ -98,9 +96,8 @@ function loadNativeAddon(): NativeAddon {
 
 export function createUploadStore({
   ttlMs,
-  maxStoreBytes,
 }: UploadStoreDependencies): UploadStore {
-  const nativeStore = loadNativeAddon().createUploadStore(ttlMs, maxStoreBytes);
+  const nativeStore = loadNativeAddon().createUploadStore(ttlMs);
 
   return {
     clearUploads: () => nativeStore.clearUploads(),

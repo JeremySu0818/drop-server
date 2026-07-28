@@ -20,8 +20,8 @@ bytes, IVs, encrypted metadata, creation time, and expiry time. Its responsibili
 are:
 
 - atomic upsert and take-once download behavior;
-- TTL expiry and byte-capacity enforcement;
-- live session, file, encrypted-byte, and capacity statistics;
+- TTL expiry enforcement;
+- live session, file, and encrypted-byte statistics;
 - immediate RAII destruction on download, expiry, reset, and addon finalization;
 - `explicit_bzero` of every native encrypted byte buffer before it is released.
 
@@ -56,12 +56,12 @@ so the addon is rebuilt.
 | `PORT` | `7860` | HTTP listen port |
 | `TTL_MS` | `1800000` | Upload lifetime in milliseconds |
 | `MAX_JSON_SIZE` | `25mb` | Maximum HTTP JSON body size |
-| `MAX_STORE_BYTES` | `512mb` | Maximum decoded encrypted bytes retained by C++ |
 | `ALLOWED_ORIGIN` | `*` | One origin or comma-separated CORS origins |
 | `DROP_NATIVE_ADDON_PATH` | auto-detected | Optional absolute path to `drop_core.node` |
 
-When native capacity is exhausted, `POST /api/uploads` responds with HTTP `507`
-without retaining any part of that upload.
+Files larger than a browser can safely hold in memory use the chunked API. Each
+8 MiB slice is encrypted independently in the browser and retained only in
+server memory; plaintext filenames and file contents never reach the server.
 
 ## Hugging Face Spaces
 

@@ -1,14 +1,12 @@
 const DEFAULT_PORT = 7860;
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
 const DEFAULT_MAX_JSON_BYTES = 25 * 1024 * 1024;
-const DEFAULT_MAX_STORE_BYTES = 512 * 1024 * 1024;
 const PURGE_INTERVAL_CAP_MS = 60 * 1000;
 
 export type RuntimeConfig = Readonly<{
   port: number;
   ttlMs: number;
   maxJsonBytes: number;
-  maxStoreBytes: number;
   allowedOrigin: string;
 }>;
 
@@ -64,11 +62,6 @@ export const runtimeConfig: RuntimeConfig = Object.freeze({
     'MAX_JSON_SIZE',
     process.env.MAX_JSON_SIZE,
     DEFAULT_MAX_JSON_BYTES,
-  ),
-  maxStoreBytes: readByteSize(
-    'MAX_STORE_BYTES',
-    process.env.MAX_STORE_BYTES,
-    DEFAULT_MAX_STORE_BYTES,
   ),
   allowedOrigin: process.env.ALLOWED_ORIGIN || '*',
 });

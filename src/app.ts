@@ -13,9 +13,11 @@ import {
 } from './config/runtime-config.js';
 import { createAdminController } from './controllers/admin-controller.js';
 import { createApiController } from './controllers/api-controller.js';
+import { createChunkedApiController } from './controllers/chunked-api-controller.js';
 import { createAdminRoutes } from './routes/admin-routes.js';
 import { createApiRoutes } from './routes/api-routes.js';
 import { createUploadStore } from './services/upload-store.js';
+import { ChunkedUploadStore } from './services/chunked-upload-store.js';
 
 type CreateAppOptions = {
   config?: RuntimeConfig;
@@ -24,14 +26,22 @@ type CreateAppOptions = {
 
 export function createApp({ config = runtimeConfig, rootDir }: CreateAppOptions) {
   const app = express();
-  const uploadStore = createUploadStore({
+  const uploadStore = createUploadStore({ ttlMs: config.ttlMs });
+  const chunkedUploadStore = new ChunkedUploadStore({
     ttlMs: config.ttlMs,
-    maxStoreBytes: config.maxStoreBytes,
   });
-  const adminController = createAdminController({ uploadStore });
+  const adminController = createAdminController({
+    uploadStore,
+    chunkedUploadStore,
+  });
   const apiController = createApiController({
     uploadStore,
+    chunkedUploadStore,
     ttlMs: config.ttlMs,
+    maxJsonBytes: config.maxJsonBytes,
+  });
+  const chunkedApiController = createChunkedApiController({
+    store: chunkedUploadStore,
     maxJsonBytes: config.maxJsonBytes,
   });
 
@@ -48,12 +58,14 @@ export function createApp({ config = runtimeConfig, rootDir }: CreateAppOptions)
         config.allowedOrigin === '*'
           ? '*'
           : config.allowedOrigin.split(',').map((origin) => origin.trim()),
-      methods: ['GET', 'POST', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Chunk-IV'],
+      exposedHeaders: ['Content-Length', 'X-Chunk-IV'],
     }),
   );
 
   app.use('/', createAdminRoutes(adminController));
-  app.use('/api', createApiRoutes(apiController));
+  app.use('/api', createApiRoutes(apiController, chunkedApiController));
 
   const notFoundHandler: RequestHandler = (_req, res) => {
     res.status(404).json({ error: 'Not found.' });
@@ -66,6 +78,10 @@ export function createApp({ config = runtimeConfig, rootDir }: CreateAppOptions)
   app.use(errorHandler);
 
   setInterval(uploadStore.purgeExpired, getPurgeInterval(config.ttlMs)).unref();
+  setInterval(
+    chunkedUploadStore.purgeExpired,
+    getPurgeInterval(config.ttlMs),
+  ).unref();
 
   return app;
 }
