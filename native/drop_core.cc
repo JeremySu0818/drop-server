@@ -692,13 +692,12 @@ public:
         ++iterator;
         continue;
       }
-      chunked_lookup_.erase(iterator->second.lookup_key);
       if (iterator->second.active_leases > 0) {
-        iterator->second.pending_delete = true;
         ++iterator;
-      } else {
-        iterator = chunked_uploads_.erase(iterator);
+        continue;
       }
+      chunked_lookup_.erase(iterator->second.lookup_key);
+      iterator = chunked_uploads_.erase(iterator);
       ++purged;
     }
     if (purged > 0) {
@@ -1101,12 +1100,14 @@ public:
       return;
     }
     iterator->second.active_leases -= 1;
-    if (iterator->second.active_leases == 0 &&
-        (iterator->second.pending_delete ||
-         iterator->second.expires_at <= NowMilliseconds())) {
-      chunked_lookup_.erase(iterator->second.lookup_key);
-      chunked_uploads_.erase(iterator);
-      ReleaseUnusedMemory();
+    if (iterator->second.active_leases == 0) {
+      if (iterator->second.pending_delete) {
+        chunked_lookup_.erase(iterator->second.lookup_key);
+        chunked_uploads_.erase(iterator);
+        ReleaseUnusedMemory();
+      } else {
+        Touch(iterator->second);
+      }
     }
   }
 
