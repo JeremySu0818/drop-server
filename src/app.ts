@@ -17,7 +17,6 @@ import { createChunkedApiController } from './controllers/chunked-api-controller
 import { createAdminRoutes } from './routes/admin-routes.js';
 import { createApiRoutes } from './routes/api-routes.js';
 import { createUploadStore } from './services/upload-store.js';
-import { ChunkedUploadStore } from './services/chunked-upload-store.js';
 
 type CreateAppOptions = {
   config?: RuntimeConfig;
@@ -27,21 +26,14 @@ type CreateAppOptions = {
 export function createApp({ config = runtimeConfig, rootDir }: CreateAppOptions) {
   const app = express();
   const uploadStore = createUploadStore({ ttlMs: config.ttlMs });
-  const chunkedUploadStore = new ChunkedUploadStore({
-    ttlMs: config.ttlMs,
-  });
-  const adminController = createAdminController({
-    uploadStore,
-    chunkedUploadStore,
-  });
+  const adminController = createAdminController({ uploadStore });
   const apiController = createApiController({
     uploadStore,
-    chunkedUploadStore,
     ttlMs: config.ttlMs,
     maxJsonBytes: config.maxJsonBytes,
   });
   const chunkedApiController = createChunkedApiController({
-    store: chunkedUploadStore,
+    store: uploadStore,
     maxJsonBytes: config.maxJsonBytes,
   });
 
@@ -78,10 +70,6 @@ export function createApp({ config = runtimeConfig, rootDir }: CreateAppOptions)
   app.use(errorHandler);
 
   setInterval(uploadStore.purgeExpired, getPurgeInterval(config.ttlMs)).unref();
-  setInterval(
-    chunkedUploadStore.purgeExpired,
-    getPurgeInterval(config.ttlMs),
-  ).unref();
 
   return app;
 }

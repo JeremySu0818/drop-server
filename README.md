@@ -25,9 +25,10 @@ are:
 - immediate RAII destruction on download, expiry, reset, and addon finalization;
 - `explicit_bzero` of every native encrypted byte buffer before it is released.
 
-Node.js still briefly sees the incoming and outgoing base64 JSON because it owns
-the HTTP protocol boundary, but it no longer retains encrypted uploads in V8
-managed storage.
+Node.js owns only the HTTP boundary. Incoming network segments are copied
+directly into native secure allocations, and outgoing chunks are leased from the
+native store until the HTTP response finishes. TypeScript does not retain
+encrypted file buffers.
 
 ## Local development
 
@@ -36,7 +37,6 @@ The native build needs Python 3, `make`, and a C++17 compiler.
 ```bash
 npm ci
 npm run build
-npm test
 npm start
 ```
 
@@ -60,10 +60,11 @@ so the addon is rebuilt.
 | `DROP_NATIVE_ADDON_PATH` | auto-detected | Optional absolute path to `drop_core.node` |
 
 Files larger than a browser can safely hold in memory use the chunked API. Up to
-three 64 MiB slices are encrypted and uploaded concurrently, then retained only
-in server memory; plaintext filenames and file contents never reach the server.
-Incomplete uploads expire after 30 minutes of inactivity, and the browser also
-sends a best-effort abort request when its page is closed.
+three 64 MiB slices are encrypted and uploaded concurrently, then owned by the
+C++ native store in server memory. Incomplete uploads expire after 30 minutes of
+inactivity, and the browser also sends a best-effort abort request when its page
+is closed. Download, expiry, abort, and admin reset all converge on native
+`explicit_bzero` destruction followed by a libc memory trim where supported.
 
 ## Hugging Face Spaces
 

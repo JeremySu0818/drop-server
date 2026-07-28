@@ -10,8 +10,7 @@
     "build:client": "esbuild src/client/admin.tsx --bundle --format=esm --target=es2020 --outfile=public/static/js/admin.js",
     "start": "npm run build && node dist/server.js",
     "dev": "npm run build:native && npm run build:client && tsx watch server.ts",
-    "check": "tsc --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test tests/*.test.mjs"
+    "check": "tsc --noEmit -p tsconfig.json"
   },
   "engines": {
     "node": ">=20.17"

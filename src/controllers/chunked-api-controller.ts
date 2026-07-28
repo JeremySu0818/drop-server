@@ -2,10 +2,10 @@ import type { Request, Response } from 'express';
 
 import {
   CHUNK_SIZE_BYTES,
-  ChunkedUploadStore,
   isStoreError,
   type ChunkedFileInit,
-} from '../services/chunked-upload-store.js';
+  type UploadStore,
+} from '../services/upload-store.js';
 import {
   INVALID_JSON,
   PAYLOAD_TOO_LARGE,
@@ -16,7 +16,7 @@ import { isBase64, isLookupKey } from '../utils/validators.js';
 const FILE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 type ControllerOptions = {
-  store: ChunkedUploadStore;
+  store: UploadStore;
   maxJsonBytes: number;
 };
 
@@ -93,7 +93,7 @@ export function createChunkedApiController({
         res.status(400).json({ error: 'Invalid chunked upload manifest.' });
         return;
       }
-      sendResult(res, store.createUpload(lookupKey, files), 201);
+      sendResult(res, store.createChunkedUpload(lookupKey, files), 201);
     },
 
     async uploadChunk(req: Request, res: Response) {
@@ -118,33 +118,30 @@ export function createChunkedApiController({
         return;
       }
 
-      let bytes: Buffer | undefined;
       try {
-        bytes = Buffer.allocUnsafe(contentLength);
         let receivedBytes = 0;
         for await (const chunk of req) {
-          const incoming = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-          if (receivedBytes + incoming.byteLength > contentLength) {
+          if (receivedBytes + chunk.byteLength > contentLength) {
             throw new Error('Chunk exceeded its declared Content-Length.');
           }
-          incoming.copy(bytes, receivedBytes);
-          receivedBytes += incoming.byteLength;
+          store.appendChunkPart(
+            req.params.uploadId,
+            req.params.fileId,
+            index,
+            chunk,
+          );
+          receivedBytes += chunk.byteLength;
         }
         if (receivedBytes !== contentLength) {
           throw new Error('Chunk did not match its declared Content-Length.');
         }
-        sendResult(
-          res,
-          store.commitChunk(
-            req.params.uploadId,
-            req.params.fileId,
-            index,
-            iv,
-            bytes,
-          ),
+        sendResult(res, store.finishChunk(
+          req.params.uploadId,
+          req.params.fileId,
+          index,
+        ),
         );
       } catch (error) {
-        bytes?.fill(0);
         store.failChunk(req.params.uploadId, req.params.fileId, index);
         res.status(400).json({ error: 'Unable to read encrypted chunk.' });
       }
@@ -153,11 +150,14 @@ export function createChunkedApiController({
     async completeUpload(req: Request, res: Response) {
       const body = await readSmallJson(req, res, maxJsonBytes);
       if (!body) return;
-      sendResult(res, store.completeUpload(String(body.uploadId || '')));
+      sendResult(
+        res,
+        store.completeChunkedUpload(String(body.uploadId || '')),
+      );
     },
 
     abortUpload(req: Request, res: Response) {
-      sendResult(res, store.abortUpload(req.params.uploadId));
+      sendResult(res, store.abortChunkedUpload(req.params.uploadId));
     },
 
     async beginDownload(req: Request, res: Response) {
@@ -168,11 +168,11 @@ export function createChunkedApiController({
         res.status(400).json({ error: 'lookupKey must be a SHA-256 hex digest.' });
         return;
       }
-      sendResult(res, store.beginDownload(lookupKey));
+      sendResult(res, store.beginChunkedDownload(lookupKey));
     },
 
     downloadChunk(req: Request, res: Response) {
-      const chunk = store.getChunk(
+      const chunk = store.acquireChunkedDownloadChunk(
         req.params.downloadId,
         bearerToken(req),
         req.params.fileId,
@@ -185,16 +185,30 @@ export function createChunkedApiController({
       res.set({
         'Cache-Control': 'no-store',
         'Content-Type': 'application/octet-stream',
-        'Content-Length': String(chunk.size),
+        'Content-Length': String(chunk.bytes.byteLength),
         'X-Chunk-IV': chunk.iv,
       });
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        store.releaseChunkedDownloadChunk(
+          req.params.downloadId,
+          bearerToken(req),
+        );
+      };
+      res.once('finish', release);
+      res.once('close', release);
       res.end(chunk.bytes);
     },
 
     finishDownload(req: Request, res: Response) {
       sendResult(
         res,
-        store.finishDownload(req.params.downloadId, bearerToken(req)),
+        store.finishChunkedDownload(
+          req.params.downloadId,
+          bearerToken(req),
+        ),
       );
     },
   };

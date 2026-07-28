@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 
 import type { UploadStore } from '../services/upload-store.js';
-import type { ChunkedUploadStore } from '../services/chunked-upload-store.js';
 import {
   INVALID_JSON,
   PAYLOAD_TOO_LARGE,
@@ -11,7 +10,6 @@ import { readLookupKey, requireEncryptedPayload } from '../utils/validators.js';
 
 type ApiControllerDependencies = {
   uploadStore: UploadStore;
-  chunkedUploadStore: ChunkedUploadStore;
   ttlMs: number;
   maxJsonBytes: number;
 };
@@ -38,7 +36,6 @@ async function readJsonOrRespondBadRequest(
 
 export function createApiController({
   uploadStore,
-  chunkedUploadStore,
   ttlMs,
   maxJsonBytes,
 }: ApiControllerDependencies) {
@@ -84,13 +81,12 @@ export function createApiController({
       res.json({
         ok: true,
         ttlMinutes: Math.round(ttlMs / 60000),
-        stored: stats.uploadCount + chunkedUploadStore.getStats().uploadCount,
+        stored: stats.uploadCount,
       });
     },
     reset(_req: Request, res: Response) {
       const cleared = uploadStore.clearUploads();
-      const chunkedCleared = chunkedUploadStore.clearUploads();
-      res.json({ ok: true, cleared: cleared + chunkedCleared, stored: 0 });
+      res.json({ ok: true, cleared, stored: 0 });
     },
     uploads,
     download,
