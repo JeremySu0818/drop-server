@@ -117,7 +117,46 @@ function AdminClient() {
   }, []);
 
   useEffect(() => {
-    const intervalId = window.setInterval(async () => {
+    let intervalId: number | null = null;
+    let eventSource: EventSource | null = null;
+
+    const handleUpdate = (data: AdminStatsResponse) => {
+      if (uploadAnimationRef.current !== null) {
+        cancelAnimationFrame(uploadAnimationRef.current);
+      }
+      uploadAnimationRef.current = animateValue(
+        uploadCountRef.current,
+        data.uploadCount,
+        500,
+        (value) => {
+          setUploadCount(value);
+          uploadCountRef.current = value;
+        },
+      );
+
+      const nextMemory = parseMemory(data.memoryUsage);
+      if (nextMemory) {
+        if (memoryAnimationRef.current !== null) {
+          cancelAnimationFrame(memoryAnimationRef.current);
+        }
+        memorySuffixRef.current = nextMemory.suffix;
+        memoryAnimationRef.current = animateValue(
+          memoryNumberRef.current,
+          nextMemory.number,
+          500,
+          (value) => {
+            memoryNumberRef.current = value;
+            setMemoryUsage(`${value}${memorySuffixRef.current}`);
+          },
+        );
+      } else {
+        setMemoryUsage(data.memoryUsage);
+      }
+
+      setResetDisabled(data.uploadCount === 0);
+    };
+
+    const fetchStats = async () => {
       try {
         const res = await fetch('/admin/stats');
         if (!res.ok) {
@@ -125,46 +164,44 @@ function AdminClient() {
         }
 
         const data = (await res.json()) as AdminStatsResponse;
-        if (uploadAnimationRef.current !== null) {
-          cancelAnimationFrame(uploadAnimationRef.current);
-        }
-        uploadAnimationRef.current = animateValue(
-          uploadCountRef.current,
-          data.uploadCount,
-          500,
-          (value) => {
-            setUploadCount(value);
-            uploadCountRef.current = value;
-          },
-        );
-
-        const nextMemory = parseMemory(data.memoryUsage);
-        if (nextMemory) {
-          if (memoryAnimationRef.current !== null) {
-            cancelAnimationFrame(memoryAnimationRef.current);
-          }
-          memorySuffixRef.current = nextMemory.suffix;
-          memoryAnimationRef.current = animateValue(
-            memoryNumberRef.current,
-            nextMemory.number,
-            500,
-            (value) => {
-              memoryNumberRef.current = value;
-              setMemoryUsage(`${value}${memorySuffixRef.current}`);
-            },
-          );
-        } else {
-          setMemoryUsage(data.memoryUsage);
-        }
-
-        setResetDisabled(data.uploadCount === 0);
+        handleUpdate(data);
       } catch (error) {
         console.error('Failed to update stats:', error);
       }
-    }, 2000);
+    };
+
+    if (typeof EventSource !== 'undefined') {
+      eventSource = new EventSource('/admin/events');
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as AdminStatsResponse;
+          handleUpdate(data);
+        } catch (error) {
+          console.error('Failed to parse SSE stats:', error);
+        }
+      };
+
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (intervalId === null) {
+          intervalId = window.setInterval(fetchStats, 1000);
+        }
+      };
+    } else {
+      intervalId = window.setInterval(fetchStats, 1000);
+    }
 
     return () => {
-      window.clearInterval(intervalId);
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
       if (uploadAnimationRef.current !== null) {
         cancelAnimationFrame(uploadAnimationRef.current);
       }

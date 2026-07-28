@@ -48,7 +48,31 @@ export function createAdminController({ uploadStore }: AdminControllerDependenci
     });
   };
 
+  const eventsStream: RequestHandler = (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const sendStats = () => {
+      const data = {
+        uploadCount: uploadStore.getStats().uploadCount,
+        memoryUsage: getMemoryUsageLabel(),
+      };
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    sendStats();
+
+    const timer = setInterval(sendStats, 1000);
+
+    req.on('close', () => {
+      clearInterval(timer);
+    });
+  };
+
   return {
+    eventsStream,
     legacyAdminRedirect,
     legacyResetRedirect,
     page,
