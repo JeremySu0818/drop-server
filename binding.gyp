@@ -3,7 +3,13 @@
     {
       "target_name": "drop_core",
       "sources": [
-        "native/drop_core.cc"
+        "native/src/entry.cc",
+        "native/src/memory/secure_bytes.cc",
+        "native/src/core/upload_store.cc",
+        "native/src/napi/napi_helpers.cc"
+      ],
+      "include_dirs": [
+        "native/includes"
       ],
       "defines": [
         "NAPI_VERSION=8"
