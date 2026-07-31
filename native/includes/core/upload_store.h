@@ -37,6 +37,7 @@ public:
                  std::uint32_t index);
   CompleteChunkedUploadResult
   CompleteChunkedUpload(const std::string &upload_id);
+  DownloadStatusResult GetDownloadStatus(const std::string &lookup_key);
   BeginChunkedDownloadResult
   BeginChunkedDownload(const std::string &lookup_key);
   AcquireChunkResult AcquireChunkedDownloadChunk(const std::string &download_id,

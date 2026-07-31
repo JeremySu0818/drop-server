@@ -43,6 +43,7 @@ napi_value Render(napi_env env, TakeResult result);
 napi_value Render(napi_env env, const Stats &stats);
 napi_value Render(napi_env env, const CreateChunkedUploadResult &result);
 napi_value Render(napi_env env, const CompleteChunkedUploadResult &result);
+napi_value Render(napi_env env, const DownloadStatusResult &result);
 napi_value Render(napi_env env, const BeginChunkedDownloadResult &result);
 napi_value Render(napi_env env, const AcquireChunkResult &result);
 

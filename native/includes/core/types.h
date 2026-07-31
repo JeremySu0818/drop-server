@@ -99,6 +99,10 @@ struct CompleteChunkedUploadResult : StatusResult {
   std::int64_t expires_at = 0;
 };
 
+struct DownloadStatusResult : StatusResult {
+  std::int64_t expires_at = 0;
+};
+
 struct BeginChunkedDownloadResult : StatusResult {
   std::string download_id;
   std::string download_token;

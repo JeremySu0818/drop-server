@@ -12,6 +12,7 @@ type ChunkedApiController = {
   uploadChunk: RequestHandler;
   completeUpload: RequestHandler;
   abortUpload: RequestHandler;
+  getDownloadStatus: RequestHandler;
   beginDownload: RequestHandler;
   downloadChunk: RequestHandler;
   finishDownload: RequestHandler;
@@ -43,6 +44,10 @@ export function createApiRoutes(
   router.post(
     '/chunked-uploads/:uploadId/abort',
     chunkedApiController.abortUpload,
+  );
+  router.post(
+    '/chunked-download/status',
+    chunkedApiController.getDownloadStatus,
   );
   router.post('/chunked-download', chunkedApiController.beginDownload);
   router.get(

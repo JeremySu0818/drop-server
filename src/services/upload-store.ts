@@ -92,6 +92,9 @@ type NativeUploadStore = {
     token: string,
   ) => NativeResult<UploadErrorPayload | { ok: true }>;
   getStats: () => UploadStoreStats;
+  getDownloadStatus: (
+    lookupKey: string,
+  ) => NativeResult<UploadErrorPayload | { ok: true; expiresAt: number }>;
   purgeExpired: () => number;
   releaseChunkedDownloadChunk: (
     downloadId: string,
@@ -167,6 +170,9 @@ export type UploadStore = {
     token: string,
   ) => StoreResult<{ ok: true }>;
   getStats: () => UploadStoreStats;
+  getDownloadStatus: (
+    lookupKey: string,
+  ) => StoreResult<{ ok: true; expiresAt: number }>;
   purgeExpired: () => void;
   releaseChunkedDownloadChunk: (
     downloadId: string,
@@ -285,6 +291,8 @@ export function createUploadStore({
     finishChunkedDownload: (downloadId, token) =>
       unwrapNativeResult(nativeStore.finishChunkedDownload(downloadId, token)),
     getStats: () => nativeStore.getStats(),
+    getDownloadStatus: (lookupKey) =>
+      unwrapNativeResult(nativeStore.getDownloadStatus(lookupKey)),
     purgeExpired: () => {
       nativeStore.purgeExpired();
     },

@@ -183,6 +183,19 @@ napi_value BeginChunkedDownloadCallback(napi_env env, napi_callback_info info) {
   });
 }
 
+napi_value GetDownloadStatusCallback(napi_env env, napi_callback_info info) {
+  return napi::Run(env, [&]() -> napi_value {
+    std::size_t argc = 1;
+    napi_value arguments[1];
+    UploadStore *store = GetStore(env, info, &argc, arguments);
+    if (argc < 1) {
+      napi::ThrowTypeError(env, "getDownloadStatus requires lookupKey.");
+    }
+    return napi::Render(env, store->GetDownloadStatus(
+                                 napi::ReadString(env, arguments[0], "lookupKey")));
+  });
+}
+
 napi_value AcquireChunkedDownloadChunkCallback(napi_env env,
                                                napi_callback_info info) {
   return napi::Run(env, [&]() -> napi_value {
@@ -322,6 +335,8 @@ napi_value CreateUploadStore(napi_env env, napi_callback_info info) {
          napi_default, store.get()},
         {"completeChunkedUpload", nullptr, CompleteChunkedUploadCallback,
          nullptr, nullptr, nullptr, napi_default, store.get()},
+        {"getDownloadStatus", nullptr, GetDownloadStatusCallback, nullptr,
+         nullptr, nullptr, napi_default, store.get()},
         {"beginChunkedDownload", nullptr, BeginChunkedDownloadCallback, nullptr,
          nullptr, nullptr, napi_default, store.get()},
         {"acquireChunkedDownloadChunk", nullptr,

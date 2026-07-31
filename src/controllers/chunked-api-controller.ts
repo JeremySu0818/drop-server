@@ -160,6 +160,17 @@ export function createChunkedApiController({
       sendResult(res, store.abortChunkedUpload(req.params.uploadId));
     },
 
+    async getDownloadStatus(req: Request, res: Response) {
+      const body = await readSmallJson(req, res, maxJsonBytes);
+      if (!body) return;
+      const lookupKey = String(body.lookupKey || '').toLowerCase();
+      if (!isLookupKey(lookupKey)) {
+        res.status(400).json({ error: 'lookupKey must be a SHA-256 hex digest.' });
+        return;
+      }
+      sendResult(res, store.getDownloadStatus(lookupKey));
+    },
+
     async beginDownload(req: Request, res: Response) {
       const body = await readSmallJson(req, res, maxJsonBytes);
       if (!body) return;

@@ -556,6 +556,16 @@ napi_value Render(napi_env env, const CompleteChunkedUploadResult &result) {
   return MakeResult(env, result.status, payload);
 }
 
+napi_value Render(napi_env env, const DownloadStatusResult &result) {
+  if (napi_value error = RenderErrorOrNull(env, result); error != nullptr) {
+    return error;
+  }
+  napi_value payload = MakeOkPayload(env);
+  SetProperty(env, payload, "expiresAt",
+              MakeNumber(env, static_cast<double>(result.expires_at)));
+  return MakeResult(env, result.status, payload);
+}
+
 napi_value Render(napi_env env, const BeginChunkedDownloadResult &result) {
   if (napi_value error = RenderErrorOrNull(env, result); error != nullptr) {
     return error;
