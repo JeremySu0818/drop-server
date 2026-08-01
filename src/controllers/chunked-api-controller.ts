@@ -59,7 +59,11 @@ function parseFiles(value: unknown): ChunkedFileInit[] | null {
   return files;
 }
 
-async function readSmallJson(req: Request, res: Response, maxJsonBytes: number) {
+async function readSmallJson(
+  req: Request,
+  res: Response,
+  maxJsonBytes: number,
+) {
   try {
     return await readJsonBody(req, Math.min(maxJsonBytes, 1024 * 1024));
   } catch (error) {
@@ -69,7 +73,12 @@ async function readSmallJson(req: Request, res: Response, maxJsonBytes: number) 
         : error instanceof Error && error.message === INVALID_JSON
           ? 'Invalid JSON body.'
           : 'Unable to read request body.';
-    res.status(error instanceof Error && error.message === PAYLOAD_TOO_LARGE ? 413 : 400)
+    res
+      .status(
+        error instanceof Error && error.message === PAYLOAD_TOO_LARGE
+          ? 413
+          : 400,
+      )
       .json({ error: message });
     return null;
   }
@@ -102,7 +111,9 @@ export function createChunkedApiController({
       const contentLength = Number(req.headers['content-length']);
       if (!isBase64(iv) || !Number.isSafeInteger(contentLength)) {
         req.resume();
-        res.status(400).json({ error: 'Chunk IV and Content-Length are required.' });
+        res
+          .status(400)
+          .json({ error: 'Chunk IV and Content-Length are required.' });
         return;
       }
       const target = store.beginChunk(
@@ -135,11 +146,9 @@ export function createChunkedApiController({
         if (receivedBytes !== contentLength) {
           throw new Error('Chunk did not match its declared Content-Length.');
         }
-        sendResult(res, store.finishChunk(
-          req.params.uploadId,
-          req.params.fileId,
-          index,
-        ),
+        sendResult(
+          res,
+          store.finishChunk(req.params.uploadId, req.params.fileId, index),
         );
       } catch (error) {
         store.failChunk(req.params.uploadId, req.params.fileId, index);
@@ -150,10 +159,7 @@ export function createChunkedApiController({
     async completeUpload(req: Request, res: Response) {
       const body = await readSmallJson(req, res, maxJsonBytes);
       if (!body) return;
-      sendResult(
-        res,
-        store.completeChunkedUpload(String(body.uploadId || '')),
-      );
+      sendResult(res, store.completeChunkedUpload(String(body.uploadId || '')));
     },
 
     abortUpload(req: Request, res: Response) {
@@ -165,7 +171,9 @@ export function createChunkedApiController({
       if (!body) return;
       const lookupKey = String(body.lookupKey || '').toLowerCase();
       if (!isLookupKey(lookupKey)) {
-        res.status(400).json({ error: 'lookupKey must be a SHA-256 hex digest.' });
+        res
+          .status(400)
+          .json({ error: 'lookupKey must be a SHA-256 hex digest.' });
         return;
       }
       sendResult(res, store.getDownloadStatus(lookupKey));
@@ -176,7 +184,9 @@ export function createChunkedApiController({
       if (!body) return;
       const lookupKey = String(body.lookupKey || '').toLowerCase();
       if (!isLookupKey(lookupKey)) {
-        res.status(400).json({ error: 'lookupKey must be a SHA-256 hex digest.' });
+        res
+          .status(400)
+          .json({ error: 'lookupKey must be a SHA-256 hex digest.' });
         return;
       }
       sendResult(res, store.beginChunkedDownload(lookupKey));
@@ -216,10 +226,7 @@ export function createChunkedApiController({
     finishDownload(req: Request, res: Response) {
       sendResult(
         res,
-        store.finishChunkedDownload(
-          req.params.downloadId,
-          bearerToken(req),
-        ),
+        store.finishChunkedDownload(req.params.downloadId, bearerToken(req)),
       );
     },
   };

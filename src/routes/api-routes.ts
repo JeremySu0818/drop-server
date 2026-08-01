@@ -33,14 +33,8 @@ export function createApiRoutes(
     '/chunked-uploads/:uploadId/files/:fileId/chunks/:index',
     chunkedApiController.uploadChunk,
   );
-  router.post(
-    '/chunked-uploads/complete',
-    chunkedApiController.completeUpload,
-  );
-  router.delete(
-    '/chunked-uploads/:uploadId',
-    chunkedApiController.abortUpload,
-  );
+  router.post('/chunked-uploads/complete', chunkedApiController.completeUpload);
+  router.delete('/chunked-uploads/:uploadId', chunkedApiController.abortUpload);
   router.post(
     '/chunked-uploads/:uploadId/abort',
     chunkedApiController.abortUpload,

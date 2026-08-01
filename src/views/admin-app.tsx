@@ -6,7 +6,11 @@ export type AdminAppProps = {
   resetDisabled: boolean;
 };
 
-export function AdminApp({ uploadCount, memoryUsage, resetDisabled }: AdminAppProps) {
+export function AdminApp({
+  uploadCount,
+  memoryUsage,
+  resetDisabled,
+}: AdminAppProps) {
   return (
     <main className="app-shell">
       <section className="brand-strip" aria-label="Drop">
@@ -42,22 +46,48 @@ export function AdminApp({ uploadCount, memoryUsage, resetDisabled }: AdminAppPr
             marginBottom: '32px',
           }}
         >
-          <div className="drop-zone" style={{ cursor: 'default', minHeight: 'auto', padding: '32px 24px' }}>
-            <span className="drop-title" style={{ fontSize: '3rem' }} id="upload-count">
+          <div
+            className="drop-zone"
+            style={{
+              cursor: 'default',
+              minHeight: 'auto',
+              padding: '32px 24px',
+            }}
+          >
+            <span
+              className="drop-title"
+              style={{ fontSize: '3rem' }}
+              id="upload-count"
+            >
               {uploadCount}
             </span>
             <span className="drop-meta">Active Sessions</span>
           </div>
 
-          <div className="drop-zone" style={{ cursor: 'default', minHeight: 'auto', padding: '32px 24px' }}>
-            <span className="drop-title" style={{ fontSize: '2.5rem' }} id="memory-usage">
+          <div
+            className="drop-zone"
+            style={{
+              cursor: 'default',
+              minHeight: 'auto',
+              padding: '32px 24px',
+            }}
+          >
+            <span
+              className="drop-title"
+              style={{ fontSize: '2.5rem' }}
+              id="memory-usage"
+            >
               {memoryUsage}
             </span>
             <span className="drop-meta">System Memory</span>
           </div>
         </div>
 
-        <form method="post" action="/admin/reset" style={{ margin: 0, padding: 0 }}>
+        <form
+          method="post"
+          action="/admin/reset"
+          style={{ margin: 0, padding: 0 }}
+        >
           <button
             className="primary-action"
             type="submit"

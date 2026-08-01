@@ -68,7 +68,9 @@ function AdminClient() {
 
   const [uploadCount, setUploadCount] = useState(bootstrap.uploadCount);
   const [memoryUsage, setMemoryUsage] = useState(bootstrap.memoryUsage);
-  const [resetDisabled, setResetDisabled] = useState(bootstrap.uploadCount === 0);
+  const [resetDisabled, setResetDisabled] = useState(
+    bootstrap.uploadCount === 0,
+  );
 
   const uploadCountRef = useRef(bootstrap.uploadCount);
   const memoryNumberRef = useRef(initialMemoryParsed.number);

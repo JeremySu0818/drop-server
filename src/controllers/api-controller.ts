@@ -27,7 +27,9 @@ async function readJsonOrRespondBadRequest(
       return null;
     }
     if (error instanceof Error && error.message === PAYLOAD_TOO_LARGE) {
-      res.status(413).json({ error: 'JSON body exceeds the configured limit.' });
+      res
+        .status(413)
+        .json({ error: 'JSON body exceeds the configured limit.' });
       return null;
     }
     throw error;
@@ -67,7 +69,9 @@ export function createApiController({
 
     const lookup = readLookupKey(body);
     if ('error' in lookup) {
-      res.status(400).json({ error: 'lookupKey must be a SHA-256 hex digest.' });
+      res
+        .status(400)
+        .json({ error: 'lookupKey must be a SHA-256 hex digest.' });
       return;
     }
 

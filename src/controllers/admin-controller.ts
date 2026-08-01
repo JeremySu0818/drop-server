@@ -16,7 +16,9 @@ function getMemoryUsageLabel(): string {
   return `${usedMb} MB / ${totalGb} GB`;
 }
 
-export function createAdminController({ uploadStore }: AdminControllerDependencies) {
+export function createAdminController({
+  uploadStore,
+}: AdminControllerDependencies) {
   const page: RequestHandler = (_req, res) => {
     const uploadCount = uploadStore.getStats().uploadCount;
     res.type('html').send(

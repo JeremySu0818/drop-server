@@ -24,7 +24,9 @@ export function isBase64(value: unknown): value is string {
   return (value.length - padding) % 4 !== 1;
 }
 
-export function readLookupKey(body: Record<string, unknown>): LookupResult | ValidationError {
+export function readLookupKey(
+  body: Record<string, unknown>,
+): LookupResult | ValidationError {
   const value = body.lookupKey ?? body.lookupHash ?? '';
   const key = String(value).toLowerCase();
   if (!isLookupKey(key)) {
@@ -69,7 +71,12 @@ export function requireEncryptedPayload(
     return { key: lookup.key, files: body.files };
   }
 
-  const fields = ['fileIv', 'fileCiphertext', 'metaIv', 'metaCiphertext'] as const;
+  const fields = [
+    'fileIv',
+    'fileCiphertext',
+    'metaIv',
+    'metaCiphertext',
+  ] as const;
   const singleFile = {} as EncryptedFilePayload;
   for (const field of fields) {
     const value = body[field];

@@ -2,7 +2,10 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { EncryptedFilePayload, ValidatedEncryptedPayload } from '../types.js';
+import type {
+  EncryptedFilePayload,
+  ValidatedEncryptedPayload,
+} from '../types.js';
 
 export const CHUNK_SIZE_BYTES = 64 * 1024 * 1024;
 
@@ -44,9 +47,7 @@ type NativeUploadStore = {
     token: string,
     fileId: string,
     index: number,
-  ) => NativeResult<
-    UploadErrorPayload | { iv: string; bytes: Uint8Array }
-  >;
+  ) => NativeResult<UploadErrorPayload | { iv: string; bytes: Uint8Array }>;
   appendChunkPart: (
     uploadId: string,
     fileId: string,
@@ -60,9 +61,7 @@ type NativeUploadStore = {
     iv: string,
     contentLength: number,
   ) => NativeResult<UploadErrorPayload | { ok: true }>;
-  beginChunkedDownload: (
-    lookupKey: string,
-  ) => NativeResult<
+  beginChunkedDownload: (lookupKey: string) => NativeResult<
     | UploadErrorPayload
     | {
         downloadId: string;
@@ -96,10 +95,7 @@ type NativeUploadStore = {
     lookupKey: string,
   ) => NativeResult<UploadErrorPayload | { ok: true; expiresAt: number }>;
   purgeExpired: () => number;
-  releaseChunkedDownloadChunk: (
-    downloadId: string,
-    token: string,
-  ) => void;
+  releaseChunkedDownloadChunk: (downloadId: string, token: string) => void;
   takeDownload: (
     lookupKey: string,
   ) => NativeResult<UploadErrorPayload | { files: EncryptedFilePayload[] }>;
@@ -118,9 +114,7 @@ type UploadStoreDependencies = {
 };
 
 export type UploadStore = {
-  abortChunkedUpload: (
-    uploadId: string,
-  ) => StoreResult<{ ok: true }>;
+  abortChunkedUpload: (uploadId: string) => StoreResult<{ ok: true }>;
   acquireChunkedDownloadChunk: (
     downloadId: string,
     token: string,
@@ -140,9 +134,7 @@ export type UploadStore = {
     iv: string,
     contentLength: number,
   ) => StoreResult<{ ok: true }>;
-  beginChunkedDownload: (
-    lookupKey: string,
-  ) => StoreResult<{
+  beginChunkedDownload: (lookupKey: string) => StoreResult<{
     downloadId: string;
     downloadToken: string;
     files: ChunkedFileInit[];
@@ -174,10 +166,7 @@ export type UploadStore = {
     lookupKey: string,
   ) => StoreResult<{ ok: true; expiresAt: number }>;
   purgeExpired: () => void;
-  releaseChunkedDownloadChunk: (
-    downloadId: string,
-    token: string,
-  ) => void;
+  releaseChunkedDownloadChunk: (downloadId: string, token: string) => void;
   takeDownload: (
     lookupKey: string,
   ) => NativeResult<UploadErrorPayload | { files: EncryptedFilePayload[] }>;
@@ -195,10 +184,7 @@ export type StoreResult<T> = T | StoreError;
 
 export function isStoreError(value: unknown): value is StoreError {
   return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'status' in value &&
-      'error' in value,
+    value && typeof value === 'object' && 'status' in value && 'error' in value,
   );
 }
 
@@ -269,13 +255,7 @@ export function createUploadStore({
       nativeStore.appendChunkPart(uploadId, fileId, index, bytes),
     beginChunk: (uploadId, fileId, index, iv, contentLength) =>
       unwrapNativeResult(
-        nativeStore.beginChunk(
-          uploadId,
-          fileId,
-          index,
-          iv,
-          contentLength,
-        ),
+        nativeStore.beginChunk(uploadId, fileId, index, iv, contentLength),
       ),
     beginChunkedDownload: (lookupKey) =>
       unwrapNativeResult(nativeStore.beginChunkedDownload(lookupKey)),

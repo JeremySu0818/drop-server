@@ -23,7 +23,10 @@ type CreateAppOptions = {
   rootDir: string;
 };
 
-export function createApp({ config = runtimeConfig, rootDir }: CreateAppOptions) {
+export function createApp({
+  config = runtimeConfig,
+  rootDir,
+}: CreateAppOptions) {
   const app = express();
   const uploadStore = createUploadStore({ ttlMs: config.ttlMs });
   const adminController = createAdminController({ uploadStore });
